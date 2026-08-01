@@ -27,6 +27,7 @@ struct ReedDetailView: View {
         ScrollView {
             VStack(spacing: Metrics.stack) {
                 header
+                if reed.isBreakingIn { breakInNote }
                 if let expectation { lifeSection(expectation) }
                 if !reed.isRetired { controls }
                 if reed.isRetired { retiredNote }
@@ -48,6 +49,26 @@ struct ReedDetailView: View {
             }
             ToolbarItem(placement: .topBarTrailing) {
                 Menu {
+                    Button {
+                        reed.isFavourite.toggle()
+                        Haptics.tick()
+                    } label: {
+                        Label(reed.isFavourite ? "Remove from favourites" : "Mark as favourite",
+                              systemImage: reed.isFavourite ? "star.slash" : "star")
+                    }
+
+                    if !reed.isRetired {
+                        Button {
+                            reed.isSetAside.toggle()
+                            Haptics.tick()
+                        } label: {
+                            Label(reed.isSetAside ? "Put back in rotation" : "Stop playing this one",
+                                  systemImage: reed.isSetAside ? "arrow.uturn.backward" : "pause.circle")
+                        }
+                    }
+
+                    Divider()
+
                     if reed.isRetired {
                         Button {
                             unretire()
@@ -105,13 +126,23 @@ struct ReedDetailView: View {
             .milled(radius: Metrics.radiusSlot)
 
             VStack(alignment: .leading, spacing: 12) {
-                VStack(alignment: .leading, spacing: 3) {
-                    Text(reed.modelDisplayName)
-                        .font(.heading(15, weight: .bold))
-                        .foregroundStyle(Palette.ink)
+                VStack(alignment: .leading, spacing: 5) {
+                    HStack(spacing: 5) {
+                        if reed.isFavourite {
+                            Image(systemName: "star.fill")
+                                .font(.system(size: 12, weight: .semibold))
+                                .foregroundStyle(Palette.accent)
+                        }
+                        Text(reed.modelDisplayName)
+                            .font(.heading(15, weight: .bold))
+                            .foregroundStyle(Palette.ink)
+                    }
                     Text("\(reed.strengthLabel) · \(reed.instrument.displayName)")
                         .font(.copy(12))
                         .foregroundStyle(Palette.inkSecondary)
+                    if reed.isSetAside && !reed.isRetired {
+                        Tag(text: "Set aside", symbol: "pause.circle")
+                    }
                 }
 
                 Display(value: Format.hours(minutes: reed.playingMinutes), unit: "h",
@@ -121,7 +152,7 @@ struct ReedDetailView: View {
                 HStack(spacing: 8) {
                     miniStat("\(reed.sessionCount)", "Sessions")
                     Rectangle().fill(Palette.hairline).frame(width: 1, height: 22)
-                    miniStat("\(reed.daysInRotation)", "Days")
+                    miniStat(reed.daysRested.map { "\($0)d" } ?? "—", "Rested")
                 }
             }
         }
@@ -135,6 +166,27 @@ struct ReedDetailView: View {
                 .font(.numeric(15, weight: .semibold))
                 .foregroundStyle(Palette.ink)
             Text(label).microLabel(Palette.inkTertiary)
+        }
+    }
+
+    /// A reed straight out of the box wants easing in. Saying so once, on the
+    /// reed itself, is worth more than a tip buried in a settings screen.
+    private var breakInNote: some View {
+        Panel {
+            VStack(alignment: .leading, spacing: 8) {
+                HStack(spacing: 8) {
+                    Image(systemName: "leaf")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(Palette.accent)
+                    Text("Breaking in")
+                        .font(.heading(15))
+                        .foregroundStyle(Palette.ink)
+                }
+                Text("Give a new reed a few short sessions — ten or fifteen minutes — and let it dry out fully in between. It settles better and lasts longer for it.")
+                    .font(.copy(13))
+                    .foregroundStyle(Palette.inkSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
         }
     }
 

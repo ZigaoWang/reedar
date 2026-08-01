@@ -138,7 +138,12 @@ struct CaseView: View {
             .task {
                 normalizeSlots()
                 let arguments = ProcessInfo.processInfo.arguments
-                if arguments.contains("-openReed"), let first = activeReeds.first {
+                // The query may not have delivered yet when this first runs.
+                if arguments.contains("-openReed") || arguments.contains("-openStats") {
+                    try? await Task.sleep(for: .milliseconds(400))
+                }
+                if arguments.contains("-openReed"),
+                   let first = activeReeds.first(where: { $0.isBreakingIn }) ?? activeReeds.first {
                     path = [first]
                 }
                 if arguments.contains("-openAdd") { addingTo = SlotTarget(index: 0) }
@@ -187,10 +192,14 @@ struct CaseView: View {
     private var subtitle: String {
         if carry?.isLifted == true { return "Drop it in any slot" }
         if activeReeds.isEmpty { return "Tap a slot to add your first reed" }
+        if let next = nextUp { return "Play \(next.slotTitle) next" }
         return weekMinutes > 0
             ? "\(Format.duration(minutes: weekMinutes)) played this week"
             : "Nothing logged this week"
     }
+
+    /// The reed that has rested longest, if there's a useful answer.
+    private var nextUp: Reed? { Rotation.nextUp(among: activeReeds) }
 
     // MARK: The case
 
@@ -225,7 +234,8 @@ struct CaseView: View {
 
                     ReedRow(
                         reed: reed,
-                        expectation: LifespanStats.expectation(for: reed, among: allReeds)
+                        expectation: LifespanStats.expectation(for: reed, among: allReeds),
+                        isNextUp: reed.id == nextUp?.id
                     )
                     .padding(4)
                     .frame(height: height)
@@ -348,6 +358,8 @@ struct SlotMoulding<Content: View>: View {
 struct ReedRow: View {
     var reed: Reed
     var expectation: LifespanSummary?
+    /// The reed that has rested longest — the one to play next.
+    var isNextUp: Bool = false
 
     private var wear: Double {
         guard let expectation, expectation.averageMinutes > 0 else { return 0 }
@@ -359,17 +371,36 @@ struct ReedRow: View {
 
     var body: some View {
         ReedView(axis: .horizontalReversed, wear: wear)
+            .saturation(reed.isSetAside ? 0.35 : 1)
+            .opacity(reed.isSetAside ? 0.55 : 1)
+            .overlay(alignment: .leading) {
+                // A tab of colour on the reed that's due, so the line in the
+                // header has something to point at.
+                if isNextUp {
+                    Capsule()
+                        .fill(Palette.accent)
+                        .frame(width: 4, height: 26)
+                        .padding(.leading, 6)
+                }
+            }
             .overlay {
                 HStack(alignment: .center, spacing: 10) {
                     VStack(alignment: .leading, spacing: 2) {
-                        Text(reed.slotTitle)
-                            .font(.heading(16))
-                            .foregroundStyle(caneInk)
-                            .lineLimit(1)
-                            .minimumScaleFactor(0.7)
+                        HStack(spacing: 5) {
+                            if reed.isFavourite {
+                                Image(systemName: "star.fill")
+                                    .font(.system(size: 11, weight: .semibold))
+                                    .foregroundStyle(caneInk.opacity(0.75))
+                            }
+                            Text(reed.slotTitle)
+                                .font(.heading(16))
+                                .foregroundStyle(caneInk)
+                                .lineLimit(1)
+                                .minimumScaleFactor(0.7)
+                        }
                         Text(subtitle)
                             .font(.copy(12.5, weight: .medium))
-                            .foregroundStyle(caneInk.opacity(0.62))
+                            .foregroundStyle(caneInk.opacity(isNextUp ? 0.85 : 0.62))
                             .lineLimit(1)
                     }
 
@@ -396,8 +427,11 @@ struct ReedRow: View {
     }
 
     private var subtitle: String {
+        let hours = Format.hours(minutes: reed.playingMinutes)
+        if reed.isSetAside { return "\(hours)h · set aside" }
+        if reed.isBreakingIn { return "\(hours)h · breaking in" }
         guard reed.sessionCount > 0 else { return "Not played yet" }
-        return "\(Format.hours(minutes: reed.playingMinutes))h · \(Format.count(reed.daysInRotation, "day"))"
+        return "\(hours)h · \(reed.restLabel.lowercased())"
     }
 }
 

@@ -40,6 +40,13 @@ final class Reed {
     var retireReasonRaw: String?
     var retireNote: String = ""
 
+    /// A reed you reach for first. Preference beats arithmetic — the app
+    /// suggests this one once it has had a rest.
+    var isFavourite: Bool = false
+    /// Still in the case and still fine, you just aren't playing it. Different
+    /// from retired: nothing died, so it stays out of the lifespan figures.
+    var isSetAside: Bool = false
+
     @Relationship(deleteRule: .cascade, inverse: \PlaySession.reed)
     var sessions: [PlaySession]? = []
 
@@ -93,6 +100,9 @@ extension Reed {
 
     var isRetired: Bool { retiredAt != nil }
 
+    /// A reed actually in play: not retired, not set aside.
+    var isInRotation: Bool { !isRetired && !isSetAside }
+
     var orderedSessions: [PlaySession] {
         (sessions ?? []).sorted { $0.date > $1.date }
     }
@@ -117,6 +127,28 @@ extension Reed {
 
     var lastPlayedAt: Date? {
         (sessions ?? []).map(\.date).max()
+    }
+
+    /// How long this reed has been resting, in days. Nil if never played.
+    var daysRested: Int? {
+        guard let last = lastPlayedAt else { return nil }
+        return max(0, Calendar.current.dateComponents([.day], from: last, to: Date()).day ?? 0)
+    }
+
+    /// "Rested 3d", "Played today", "New".
+    var restLabel: String {
+        guard let days = daysRested else { return "New" }
+        switch days {
+        case 0: return "Played today"
+        case 1: return "Rested 1d"
+        default: return "Rested \(days)d"
+        }
+    }
+
+    /// A reed straight out of the box wants a few short sessions before it is
+    /// asked to do a full rehearsal — it lasts considerably longer for it.
+    var isBreakingIn: Bool {
+        isInRotation && sessionCount < 4 && playingMinutes < 90
     }
 
     /// Days between the first session and retirement (or now).

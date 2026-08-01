@@ -188,6 +188,17 @@ struct LogSessionView: View {
                     }
                 }
 
+                if reed.isBreakingIn {
+                    HStack(spacing: 7) {
+                        Image(systemName: "leaf")
+                            .font(.system(size: 12, weight: .semibold))
+                        Text("Still breaking in — short sessions help it last.")
+                            .font(.copy(13))
+                    }
+                    .foregroundStyle(Palette.accent)
+                    .padding(.top, 4)
+                }
+
                 Text("Or set it exactly")
                     .font(.copy(13))
                     .foregroundStyle(Palette.inkTertiary)

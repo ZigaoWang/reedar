@@ -38,6 +38,12 @@ enum SampleData {
                               strength: "2M", value: 2.25, scale: .daddarioJazz,
                               instrument: .tenorSax, addedDaysAgo: 9, slot: 1)
 
+        // Straight out of the box — one short session, still breaking in.
+        let fresh = make(brandID: "vandoren", brand: "Vandoren",
+                         modelID: "vandoren-v16", model: "V16",
+                         strength: "3", value: 3.0, scale: .halfStep,
+                         addedDaysAgo: 3, slot: 2)
+
         // Retired
         let old1 = make(brandID: "vandoren", brand: "Vandoren",
                         modelID: "vandoren-java-red", model: "Java Red",
@@ -50,7 +56,7 @@ enum SampleData {
                         strength: "2M", value: 2.25, scale: .daddarioJazz,
                         instrument: .tenorSax, addedDaysAgo: 75)
 
-        for reed in [javaRed, selectJazz, old1, old2, old3] {
+        for reed in [javaRed, selectJazz, fresh, old1, old2, old3] {
             context.insert(reed)
         }
 
@@ -74,6 +80,8 @@ enum SampleData {
         log(javaRed, daysAgo: 2, total: 60, context: .lesson)
         log(javaRed, daysAgo: 1, total: 45, context: .practice)
 
+        log(fresh, daysAgo: 2, total: 15, context: .practice)
+
         log(selectJazz, daysAgo: 7, total: 75, context: .practice)
         log(selectJazz, daysAgo: 4, total: 120, context: .rehearsal)
         log(selectJazz, daysAgo: 1, total: 90, context: .practice)
@@ -87,6 +95,10 @@ enum SampleData {
         for day in stride(from: 72, through: 30, by: -7) {
             log(old3, daysAgo: day, total: 100, context: .practice)
         }
+
+        // A reed the player favours, and one they've stopped reaching for.
+        javaRed.isFavourite = true
+        fresh.isSetAside = true
 
         old1.retiredAt = daysAgo(64)
         old1.retireReasonRaw = RetireReason.wentFlat.rawValue
