@@ -217,7 +217,9 @@ struct CaseView: View {
                 // The mouldings never move.
                 VStack(spacing: slotGap) {
                     ForEach(0..<slotCount, id: \.self) { index in
-                        SlotMoulding(isTarget: hovered == index) { Color.clear }
+                        SlotMoulding(index: index,
+                                     isEmpty: slots[index] == nil,
+                                     isTarget: hovered == index) { Color.clear }
                             .frame(height: height)
                             .contentShape(Rectangle())
                             .onTapGesture {
@@ -243,8 +245,15 @@ struct CaseView: View {
                     .frame(height: height)
                     .scaleEffect(isCarried ? 1.03 : 1)
                     .rotationEffect(.degrees(isCarried ? -0.7 : 0))
-                    .shadow(color: .black.opacity(isCarried ? 0.6 : 0),
-                            radius: isCarried ? 16 : 0, y: isCarried ? 10 : 0)
+                    // A reed resting in its slot still touches the floor of it:
+                    // a tight contact shadow, which grows and softens the
+                    // moment the reed is lifted into the hand.
+                    //
+                    // Flattened first, or the shadow reaches every view inside
+                    // and each letter printed on the cane casts its own.
+                    .compositingGroup()
+                    .shadow(color: .black.opacity(isCarried ? 0.6 : 0.55),
+                            radius: isCarried ? 16 : 3, y: isCarried ? 10 : 1.5)
                     .offset(y: base + (isCarried ? (carry?.translation ?? 0) : 0))
                     // Settled reeds glide to their new slot; the carried one
                     // tracks the finger with no animation in the way.
@@ -274,12 +283,19 @@ struct CaseView: View {
         }
         .padding(12)
         .frame(maxHeight: .infinity)
-        .background {
-            let shape = RoundedRectangle(cornerRadius: Metrics.radiusCase, style: .continuous)
-            shape
-                .fill(Palette.surface)
-                .overlay { shape.strokeBorder(Palette.hairline, lineWidth: 1) }
-        }
+        .background { caseShell }
+    }
+
+    /// The shell the slots are milled out of: one moulded face, lit along its
+    /// top edge and shaded along the bottom.
+    private var caseShell: some View {
+        let shape = RoundedRectangle(cornerRadius: Metrics.radiusCase, style: .continuous)
+        return shape
+            .fill(Palette.caseFace)
+            .overlay { Light.bevel(shape, highlight: 0.11, shade: 0.4) }
+            .overlay { shape.strokeBorder(Palette.hairline, lineWidth: 1) }
+            .clipShape(shape)
+            .shadow(color: .black.opacity(0.5), radius: 18, y: 8)
     }
 
     // MARK: Carrying
@@ -341,6 +357,8 @@ struct SlotTarget: Identifiable {
 /// The moulded recess in the case. Drawn once per slot, whether or not a reed
 /// is lying in it.
 struct SlotMoulding<Content: View>: View {
+    var index: Int = 0
+    var isEmpty: Bool = false
     var isTarget: Bool = false
     @ViewBuilder var content: Content
 
@@ -350,19 +368,44 @@ struct SlotMoulding<Content: View>: View {
         // empty — an empty conditional on its own lays out at zero height.
         return ZStack {
             Color.clear
+            if isEmpty { engraving }
             content
         }
             .padding(4)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .background {
-                shape
-                    .fill(Palette.recess)
-                    .overlay {
-                        shape.strokeBorder(isTarget ? Palette.accent.opacity(0.8) : Palette.hairline,
-                                           lineWidth: isTarget ? 2 : 1)
-                    }
+                ZStack {
+                    // The floor of the recess, in shadow under its near wall.
+                    shape.fill(Palette.recessFace)
+                    // The walls: dark where they face away from the light,
+                    // bright where the far one turns back toward it.
+                    Light.topShade(shape, radius: 3, width: 3.5, opacity: 0.85)
+                    Light.bottomCatch(shape, width: 1.4, opacity: 0.07)
+                    shape.strokeBorder(isTarget ? Palette.accent.opacity(0.8) : Palette.hairline,
+                                       lineWidth: isTarget ? 2 : 1)
+                }
+                .grained(0.02)
+                .clipShape(shape)
+                .animation(.mechanical, value: isTarget)
             }
             .contentShape(Rectangle())
+    }
+
+    /// An empty slot isn't nothing — it's a numbered bay. Marked faintly, in
+    /// one flat tone: at this size a cut-in letter is a smudge, not a letter.
+    private var engraving: some View {
+        HStack {
+            Text(indexLabel(index + 1))
+                .font(.numeric(13, weight: .bold))
+                .tracking(1)
+            Spacer()
+            Image(systemName: "plus")
+                .font(.system(size: 11, weight: .bold))
+        }
+        .foregroundStyle(Color.white.opacity(0.07))
+        .padding(.horizontal, 16)
+        .opacity(isTarget ? 0 : 1)
+        .animation(.mechanical, value: isTarget)
     }
 }
 

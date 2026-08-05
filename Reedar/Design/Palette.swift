@@ -35,6 +35,28 @@ enum Palette {
     static let signalAmber = Color(hex: 0xF2B23C)
     static let signalRed = Color(hex: 0xF05A4E)
 
+    // MARK: Faces
+
+    /// A raised surface seen straight on. Moulded plastic never returns one
+    /// flat value: the top of a face is nearer the light than the bottom.
+    static var surfaceFace: LinearGradient {
+        LinearGradient(colors: [Color(hex: 0x1B1B1E), Color(hex: 0x121214)],
+                       startPoint: .top, endPoint: .bottom)
+    }
+
+    /// The floor of a recess, which darkens toward the top where the near wall
+    /// keeps the light off it.
+    static var recessFace: LinearGradient {
+        LinearGradient(colors: [Color(hex: 0x030304), Color(hex: 0x0A0A0C)],
+                       startPoint: .top, endPoint: .bottom)
+    }
+
+    /// The shell the case is milled out of.
+    static var caseFace: LinearGradient {
+        LinearGradient(colors: [Color(hex: 0x1E1E22), Color(hex: 0x121215)],
+                       startPoint: .top, endPoint: .bottom)
+    }
+
     // MARK: Edges
 
     /// The one line that separates a surface from what's behind it.

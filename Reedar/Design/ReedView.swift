@@ -88,8 +88,11 @@ private struct VampShape: Shape {
     }
 }
 
-/// A reed. Flat colours only — bark below the cut line, pale cane inside the
-/// vamp, palest at the tip — with fine fibre running the full length.
+/// A reed. Cane is a tube split lengthways, so the bark side is gently domed
+/// across its width, and the scraped vamp is planed flat with a heart left
+/// standing down the spine. Four clean layers say that — dome, vamp, heart,
+/// fibre — and nothing is blurred. Softening the edges of cane is what makes
+/// it look like mud rather than a reed.
 struct ReedView: View {
     var axis: ReedAxis = .horizontal
     /// 0 = fresh, 1 = at its expected lifespan, beyond that it's on borrowed time.
@@ -98,51 +101,55 @@ struct ReedView: View {
     var strengthStamp: String = ""
     var isRetired: Bool = false
 
-    // Flat, hardcoded, identical in every appearance.
-    private let bark = Color(hex: 0xD2A85F)
-    private let vamp = Color(hex: 0xEFE2BE)
-    private let fibre = Color(hex: 0x9A7C42)
-    private let outline = Color(hex: 0xA9853F)
+    // Hardcoded, identical in every appearance. Clean cane tones: bright
+    // golden bark, warm bone vamp. Everything here is either a flat colour or
+    // one clean gradient — stacked blurs turn cane into mud.
+    private let bark = Color(hex: 0xD9AA4F)
+    /// The vamp, from the bark line to the tip: thick coloured cane, then the
+    /// working middle, then bone where there is almost nothing left of it.
+    private let vampThick = Color(hex: 0xE0CB94)
+    private let vamp = Color(hex: 0xEDE0BA)
+    private let vampThin = Color(hex: 0xF6EFDA)
+    /// The spine of cane left standing down the middle of the vamp.
+    private let heartTone = Color(hex: 0xC7A661)
+    private let fibre = Color(hex: 0xA07E3C)
+    private let outline = Color(hex: 0x8C6A28)
     private let worn = Color(hex: 0x8A7346)
 
     private var shape: ReedShape { ReedShape(axis: axis) }
 
     var body: some View {
         GeometryReader { geo in
-            let p = pointMapper(axis: axis, rect: CGRect(origin: .zero, size: geo.size))
             let across = axis.isHorizontal ? geo.size.height : geo.size.width
 
             ZStack {
                 // Bark: the whole reed starts as this.
                 bark
 
-                // The vamp: pale scraped cane inside the U.
-                VampShape(axis: axis).fill(vamp)
+                // The dome. Bark is the outside of a split tube, so it carries
+                // the tube's curvature — and only it does. Drawn before the
+                // vamp so the planed area covers it.
+                curvature
 
-                // Fine fibre, running the full length through vamp and bark alike.
-                Canvas { context, size in
-                    let span = axis.isHorizontal ? size.height : size.width
-                    let count = max(16, Int(span / 1.1))
-                    for i in 0..<count {
-                        let t = (Double(i) + 0.5) / Double(count)
-                        // Deterministic, so the grain is identical every launch.
-                        let h = Double((i &* 2654435761) % 1000) / 1000
-                        var line = Path()
-                        if axis.isHorizontal {
-                            let y = span * t
-                            line.move(to: CGPoint(x: 0, y: y))
-                            line.addLine(to: CGPoint(x: size.width, y: y))
-                        } else {
-                            let x = span * t
-                            line.move(to: CGPoint(x: x, y: 0))
-                            line.addLine(to: CGPoint(x: x, y: size.height))
-                        }
-                        context.stroke(line,
-                                       with: .color(fibre.opacity(0.06 + h * 0.13)),
-                                       lineWidth: h > 0.86 ? 1.1 : 0.6)
-                    }
-                }
-                .allowsHitTesting(false)
+                // The vamp: scraped cane, thick and still coloured where the
+                // bark ends, thinning to bone at the tip.
+                VampShape(axis: axis).fill(lengthwise([
+                    .init(color: vampThick, location: VampShape.barkLine),
+                    .init(color: vamp, location: 0.72),
+                    .init(color: vampThin, location: 1),
+                ]))
+
+                // The heart: the ridge of cane left standing down the spine,
+                // with a thinner rail either side of it. This is the shading
+                // that says "planed" rather than "tinted lozenge".
+                heart
+
+                fibres
+
+                // Where the blade stopped. One clean line, no smear: this is a
+                // cut, and a cut has an edge.
+                VampShape(axis: axis)
+                    .stroke(outline.opacity(0.5), lineWidth: 0.75)
 
                 // Wear: only the vamp dulls. Tinting past the cut line put a
                 // hard edge across the bark and left it looking two-toned.
@@ -165,6 +172,104 @@ struct ReedView: View {
             .overlay { shape.stroke(outline.opacity(0.55), lineWidth: 1) }
             .saturation(isRetired ? 0.4 : 1)
         }
+    }
+
+    // MARK: Material
+
+    /// A gradient running heel to tip, whichever way the reed lies.
+    private func lengthwise(_ stops: [Gradient.Stop]) -> LinearGradient {
+        let (start, end): (UnitPoint, UnitPoint) = switch axis {
+        case .horizontal: (.leading, .trailing)
+        case .horizontalReversed: (.trailing, .leading)
+        case .vertical: (.bottom, .top)
+        }
+        return LinearGradient(stops: stops, startPoint: start, endPoint: end)
+    }
+
+    /// A gradient running across the width.
+    private func widthwise(_ stops: [Gradient.Stop]) -> LinearGradient {
+        let (start, end): (UnitPoint, UnitPoint) = axis.isHorizontal
+            ? (.top, .bottom)
+            : (.leading, .trailing)
+        return LinearGradient(stops: stops, startPoint: start, endPoint: end)
+    }
+
+    /// The heart, and the two rails either side of it. Strongest just above
+    /// the bark line where the cane is thickest, gone by the tip.
+    private var heart: some View {
+        widthwise([
+            // The rails are thin, but they are also the part of the reed
+            // turning away from the light, so they go down, not up.
+            .init(color: .black.opacity(0.16), location: 0),
+            .init(color: .clear, location: 0.17),
+            .init(color: heartTone.opacity(0.26), location: 0.38),
+            .init(color: heartTone.opacity(0.32), location: 0.5),
+            .init(color: heartTone.opacity(0.26), location: 0.62),
+            .init(color: .clear, location: 0.83),
+            .init(color: .black.opacity(0.18), location: 1),
+        ])
+        .mask {
+            VampShape(axis: axis).fill(lengthwise([
+                .init(color: .white, location: VampShape.barkLine),
+                .init(color: .white.opacity(0.85), location: 0.7),
+                .init(color: .white.opacity(0.45), location: 1),
+            ]))
+        }
+    }
+
+    /// The dome. Deliberately asymmetric — the crown of the arch sits nearer
+    /// the light than the middle, which is what stops it reading as a tube
+    /// drawn with a symmetrical airbrush.
+    private var curvature: some View {
+        widthwise([
+            .init(color: .black.opacity(0.20), location: 0),
+            .init(color: .clear, location: 0.16),
+            .init(color: .white.opacity(0.13), location: 0.34),
+            .init(color: .clear, location: 0.64),
+            .init(color: .black.opacity(0.07), location: 0.86),
+            .init(color: .black.opacity(0.22), location: 1),
+        ])
+    }
+
+    /// Fine fibre running the full length, through vamp and bark alike. It
+    /// fades as the cane thins, because there is less of it left to see.
+    private var fibres: some View {
+        Canvas { context, size in
+            let span = axis.isHorizontal ? size.height : size.width
+            let count = max(16, Int(span / 1.1))
+            for i in 0..<count {
+                let t = (Double(i) + 0.5) / Double(count)
+                // Deterministic, so the grain is identical every launch.
+                let h = Double((i &* 2654435761) % 1000) / 1000
+                // Fibre near the domed edges is turning away from us, so it
+                // foreshortens into a fainter, finer line.
+                let facing = 0.45 + 0.55 * sin(t * .pi)
+                var line = Path()
+                if axis.isHorizontal {
+                    let y = span * t
+                    line.move(to: CGPoint(x: 0, y: y))
+                    line.addLine(to: CGPoint(x: size.width, y: y))
+                } else {
+                    let x = span * t
+                    line.move(to: CGPoint(x: x, y: 0))
+                    line.addLine(to: CGPoint(x: x, y: size.height))
+                }
+                context.stroke(line,
+                               with: .color(fibre.opacity((0.03 + h * 0.10) * facing)),
+                               lineWidth: h > 0.9 ? 0.9 : 0.5)
+            }
+        }
+        .mask {
+            // Bark hides most of the grain; the scrape exposes it. It fades
+            // again right at the tip, where there is barely any cane left.
+            lengthwise([
+                .init(color: .white.opacity(0.45), location: 0),
+                .init(color: .white.opacity(0.5), location: VampShape.barkLine),
+                .init(color: .white, location: 0.55),
+                .init(color: .white.opacity(0.55), location: 1),
+            ])
+        }
+        .allowsHitTesting(false)
     }
 
     private var stampAlignment: Alignment {
