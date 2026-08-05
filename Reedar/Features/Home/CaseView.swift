@@ -109,6 +109,19 @@ struct CaseView: View {
         return preview.firstIndex { $0?.id == reed.id } ?? settled
     }
 
+    /// Which slots have a reed lying in them at this moment. A reed held in
+    /// the hand has left its slot, so that slot is bare and says so — waiting
+    /// for the drop to admit it left a numbered bay looking occupied.
+    private func occupiedSlots(height: CGFloat) -> Set<Int> {
+        var result: Set<Int> = []
+        for reed in activeReeds {
+            let isCarried = reed.id == carry?.id && carry?.isLifted == true
+            guard !isCarried else { continue }
+            result.insert(displaySlot(of: reed, height: height))
+        }
+        return result
+    }
+
     private func slotY(_ index: Int, height: CGFloat) -> CGFloat {
         CGFloat(index) * (height + slotGap)
     }
@@ -212,13 +225,14 @@ struct CaseView: View {
             let hovered: Int? = carry.flatMap {
                 $0.isLifted ? hoverSlot($0, height: height) : nil
             }
+            let occupied = occupiedSlots(height: height)
 
             ZStack(alignment: .top) {
                 // The mouldings never move.
                 VStack(spacing: slotGap) {
                     ForEach(0..<slotCount, id: \.self) { index in
                         SlotMoulding(index: index,
-                                     isEmpty: slots[index] == nil,
+                                     isEmpty: !occupied.contains(index),
                                      isTarget: hovered == index) { Color.clear }
                             .frame(height: height)
                             .contentShape(Rectangle())
@@ -281,13 +295,15 @@ struct CaseView: View {
                 if previous != nil, current != nil { Haptics.tick() }
             }
         }
-        .padding(12)
+        .padding(7)
+        .background { tray }
+        .padding(6)
         .frame(maxHeight: .infinity)
         .background { caseShell }
     }
 
-    /// The shell the slots are milled out of: one moulded face, lit along its
-    /// top edge and shaded along the bottom.
+    /// The shell: the outside of the case, the only part of it that catches
+    /// the light square on.
     private var caseShell: some View {
         let shape = RoundedRectangle(cornerRadius: Metrics.radiusCase, style: .continuous)
         return shape
@@ -296,6 +312,18 @@ struct CaseView: View {
             .overlay { shape.strokeBorder(Palette.hairline, lineWidth: 1) }
             .clipShape(shape)
             .shadow(color: .black.opacity(0.5), radius: 18, y: 8)
+    }
+
+    /// The tray the slots are cut into, sunk into the shell. Three depths —
+    /// shell, tray, slot — is what makes the slots read as machined out of
+    /// something solid rather than drawn on top of it.
+    private var tray: some View {
+        let shape = RoundedRectangle(cornerRadius: Metrics.radiusCase - 6, style: .continuous)
+        return shape
+            .fill(Palette.trayFace)
+            .overlay { Light.topShade(shape, radius: 3, width: 4, opacity: 0.6) }
+            .overlay { Light.bottomCatch(shape, width: 1.2, opacity: 0.05) }
+            .clipShape(shape)
     }
 
     // MARK: Carrying
@@ -384,7 +412,6 @@ struct SlotMoulding<Content: View>: View {
                     shape.strokeBorder(isTarget ? Palette.accent.opacity(0.8) : Palette.hairline,
                                        lineWidth: isTarget ? 2 : 1)
                 }
-                .grained(0.02)
                 .clipShape(shape)
                 .animation(.mechanical, value: isTarget)
             }

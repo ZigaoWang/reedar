@@ -53,7 +53,13 @@ enum Palette {
 
     /// The shell the case is milled out of.
     static var caseFace: LinearGradient {
-        LinearGradient(colors: [Color(hex: 0x1E1E22), Color(hex: 0x121215)],
+        LinearGradient(colors: [Color(hex: 0x212126), Color(hex: 0x141417)],
+                       startPoint: .top, endPoint: .bottom)
+    }
+
+    /// The tray sunk into the shell, which the slots are cut into in turn.
+    static var trayFace: LinearGradient {
+        LinearGradient(colors: [Color(hex: 0x101013), Color(hex: 0x17171B)],
                        startPoint: .top, endPoint: .bottom)
     }
 
