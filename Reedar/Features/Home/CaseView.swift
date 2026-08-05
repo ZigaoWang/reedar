@@ -155,7 +155,9 @@ struct CaseView: View {
     // MARK: Header
 
     private var header: some View {
-        HStack(alignment: .center) {
+        HStack(alignment: .center, spacing: 10) {
+            LogoMark(size: 30)
+
             VStack(alignment: .leading, spacing: 3) {
                 Text("Reedar")
                     .font(.title(24))
