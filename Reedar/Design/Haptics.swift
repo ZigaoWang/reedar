@@ -37,10 +37,11 @@ final class Haptics {
         }
     }
 
-    private func play(_ events: [CHHapticEvent]) {
+    private func play(_ events: [CHHapticEvent],
+                      curves: [CHHapticParameterCurve] = []) {
         guard let engine else { return }
         do {
-            let pattern = try CHHapticPattern(events: events, parameters: [])
+            let pattern = try CHHapticPattern(events: events, parameterCurves: curves)
             let player = try engine.makePlayer(with: pattern)
             try player.start(atTime: CHHapticTimeImmediate)
         } catch {
@@ -104,6 +105,38 @@ final class Haptics {
             shared.transient(0, intensity: 0.5, sharpness: 0.6),
             shared.transient(0.055, intensity: 0.8, sharpness: 0.45),
         ])
+    }
+
+    /// The mark arriving at launch: a low swell that rises under the finger
+    /// and resolves into a single soft landing — the case coming to hand.
+    static func launched() {
+        guard shared.engine != nil else {
+            UIImpactFeedbackGenerator(style: .soft).impactOccurred(intensity: 0.6)
+            return
+        }
+        let swell = CHHapticEvent(
+            eventType: .hapticContinuous,
+            parameters: [
+                .init(parameterID: .hapticIntensity, value: 0.55),
+                .init(parameterID: .hapticSharpness, value: 0.12),
+            ],
+            relativeTime: 0,
+            duration: 0.26
+        )
+        // Nearly silent at the start, so the swell arrives rather than begins.
+        let rise = CHHapticParameterCurve(
+            parameterID: .hapticIntensityControl,
+            controlPoints: [
+                .init(relativeTime: 0, value: 0.05),
+                .init(relativeTime: 0.19, value: 1.0),
+                .init(relativeTime: 0.26, value: 0.5),
+            ],
+            relativeTime: 0
+        )
+        shared.play(
+            [swell, shared.transient(0.26, intensity: 0.62, sharpness: 0.4)],
+            curves: [rise]
+        )
     }
 
     /// A reed being lifted out of the case.
