@@ -49,6 +49,10 @@ struct LaunchVeil: View {
             .opacity(hasArrived ? 1 : 0)
             .scaleEffect(hasArrived ? 1 : 0.96)
             .offset(y: hasArrived ? 0 : 12)
+            // Set above true centre. Optically centred beats measured centre
+            // here: the name hangs below the mark, so a mathematically centred
+            // group sits low.
+            .offset(y: -64)
         }
         // Set against the bottom edge rather than under the mark, so it reads
         // as a colophon and leaves the mark alone. It carries the same fade as
