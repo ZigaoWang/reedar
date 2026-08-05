@@ -208,16 +208,16 @@ struct CaseView: View {
     private var caseBody: some View {
         GeometryReader { geo in
             let height = (geo.size.height - slotGap * CGFloat(slotCount - 1)) / CGFloat(slotCount)
+            // The slot the carried reed would drop into, if one is in hand.
+            let hovered: Int? = carry.flatMap {
+                $0.isLifted ? hoverSlot($0, height: height) : nil
+            }
 
             ZStack(alignment: .top) {
                 // The mouldings never move.
                 VStack(spacing: slotGap) {
                     ForEach(0..<slotCount, id: \.self) { index in
-                        let isTarget = carry.map {
-                            $0.isLifted && hoverSlot($0, height: height) == index
-                        } ?? false
-
-                        SlotMoulding(isTarget: isTarget) { Color.clear }
+                        SlotMoulding(isTarget: hovered == index) { Color.clear }
                             .frame(height: height)
                             .contentShape(Rectangle())
                             .onTapGesture {
@@ -260,6 +260,17 @@ struct CaseView: View {
                 }
             }
             .frame(maxWidth: .infinity, alignment: .top)
+            // A reed coming off the mouldings should be felt, not just seen —
+            // there was no telling the moment it was in hand.
+            .onChange(of: carry?.isLifted == true) { _, lifted in
+                if lifted { Haptics.reedLifted() }
+            }
+            // And a tick as it crosses into each new slot, so the case can be
+            // counted through the fingertip. Only between slots: the pickup and
+            // the drop have weightier haptics of their own.
+            .onChange(of: hovered) { previous, current in
+                if previous != nil, current != nil { Haptics.tick() }
+            }
         }
         .padding(12)
         .frame(maxHeight: .infinity)
