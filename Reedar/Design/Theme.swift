@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 /// Measurements and type.
 enum Metrics {
@@ -6,7 +7,13 @@ enum Metrics {
     static let radiusInner: CGFloat = 10
     static let radiusKey: CGFloat = 12
     static let radiusSlot: CGFloat = 8
-    static let radiusCase: CGFloat = 20
+
+    /// The case is the one thing on screen big enough to sit inside the
+    /// display itself, so its corners are struck concentric with the display's
+    /// own: an inner corner set back by an even margin has to lose exactly
+    /// that margin of radius, or the two curves run at different rates and the
+    /// gap between them pinches at the diagonal.
+    static var radiusCase: CGFloat { max(12, Screen.cornerRadius - screenMargin) }
 
     static let gutter: CGFloat = 16
     static let screenMargin: CGFloat = 16
@@ -75,4 +82,21 @@ extension Animation {
 /// Two-digit slot numbers.
 func indexLabel(_ n: Int) -> String {
     n < 10 ? "0\(n)" : "\(n)"
+}
+
+/// The display the app is running on.
+enum Screen {
+    /// The radius of the display's own rounded corners.
+    ///
+    /// UIKit has never exposed this. The private key is a plain read with a
+    /// fallback, and the fallback is the radius of the phones this app is
+    /// actually used on, so a rejected or renamed key costs a slightly-off
+    /// curve rather than a broken layout.
+    static let cornerRadius: CGFloat = {
+        let screen = UIApplication.shared.connectedScenes
+            .compactMap { ($0 as? UIWindowScene)?.screen }
+            .first
+        let measured = screen?.value(forKey: "_displayCornerRadius") as? CGFloat
+        return measured ?? 55
+    }()
 }

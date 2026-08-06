@@ -149,8 +149,14 @@ struct CaseView: View {
                 caseBody
             }
             .padding(.horizontal, Metrics.screenMargin)
-            .padding(.bottom, 10)
+            // The same margin at the bottom as at the sides: concentric
+            // corners only look concentric if the inset is even.
+            .padding(.bottom, Metrics.screenMargin)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
+            // The case runs to the glass at the bottom so its corners nest
+            // inside the display's. Measured from the safe area instead, it
+            // stops 34pt short and the two curves never meet.
+            .ignoresSafeArea(edges: .bottom)
             .background { Backdrop() }
             .navigationBarHidden(true)
             .sheet(item: $addingTo) { AddReedView(slot: $0.index) }
@@ -303,7 +309,19 @@ struct CaseView: View {
                 if previous != nil, current != nil { Haptics.tick() }
             }
         }
-        .padding(7)
+        // A full-width bay tucked into a tray with a 40pt corner needs about
+        // 12pt of margin before its own corner clears the arc. At 7 the first
+        // and last bays were pushing out through the tray's rounding, which is
+        // the overflow you can see even though nothing is clipped.
+        //
+        // Left and right are not equal on purpose. A bay is a reed's outline:
+        // arched at the tip, square at the heel. Struck with even margins it
+        // measures symmetrical and reads left-heavy, because the arch curves
+        // away from the wall and the heel does not. The tip end gives back
+        // four points, which is roughly what the arch takes.
+        .padding(.vertical, 13)
+        .padding(.leading, 9)
+        .padding(.trailing, 17)
         .background { tray }
         .padding(6)
         .frame(maxHeight: .infinity)
@@ -399,7 +417,12 @@ struct SlotMoulding<Content: View>: View {
     @ViewBuilder var content: Content
 
     var body: some View {
-        let shape = RoundedRectangle(cornerRadius: Metrics.radiusSlot, style: .continuous)
+        // The bay is the reed's own outline, not a rounded box: a case is
+        // moulded to hold reeds, and a squared-off trough around an arched tip
+        // leaves a crescent of dead space that reads as a mistake. The heel
+        // corners get a radius the reed itself does not have, so the end bays
+        // stop cutting across the shell's own rounding.
+        let shape = ReedShape(axis: .horizontalReversed, heelRadius: 9)
         // Color.clear guarantees the moulding has a size even when the slot is
         // empty — an empty conditional on its own lays out at zero height.
         return ZStack {
@@ -418,8 +441,8 @@ struct SlotMoulding<Content: View>: View {
                     Light.topShade(shape, radius: 3, width: 3.5, opacity: 0.85)
                     Light.bottomCatch(shape, width: 1.4, opacity: 0.07)
 
-                    shape.strokeBorder(isTarget ? Palette.accent.opacity(0.8) : Palette.hairline,
-                                       lineWidth: isTarget ? 2 : 1)
+                    shape.stroke(isTarget ? Palette.accent.opacity(0.8) : Palette.hairline,
+                                 lineWidth: isTarget ? 4 : 2)
                 }
                 .clipShape(shape)
                 .animation(.mechanical, value: isTarget)

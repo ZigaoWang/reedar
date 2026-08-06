@@ -31,6 +31,12 @@ private func pointMapper(axis: ReedAxis, rect: CGRect) -> (Double, Double) -> CG
 /// corners, and a generously rounded tip with a gentle convex curve across it.
 struct ReedShape: Shape {
     var axis: ReedAxis = .horizontal
+    /// How far to break the square corners at the heel, in points.
+    ///
+    /// A reed's heel is cut square and stays that way. The case's bays are
+    /// moulded, and a moulded corner has a radius on it — which also keeps the
+    /// last bay's sharp corner from running into the shell's own rounding.
+    var heelRadius: CGFloat = 0
 
     func path(in rect: CGRect) -> Path {
         let p = pointMapper(axis: axis, rect: rect)
@@ -49,13 +55,25 @@ struct ReedShape: Shape {
         // Places the crown of the arch exactly on the tip edge.
         let control = 1 + dd / 3
 
+        // The heel break, expressed in each axis's own normalised units so it
+        // comes out round rather than oval on a reed drawn long and thin.
+        let du = along > 0 ? min(heelRadius / along, 0.2) : 0
+        let dv = across > 0 ? min(heelRadius / across, 0.45) : 0
+
         var path = Path()
-        path.move(to: p(0, 0))                      // square heel corner
+        path.move(to: p(du, 0))
         path.addLine(to: p(start, 0))               // straight parallel side
         path.addCurve(to: p(start, 1),
                       control1: p(control, 0.06),
                       control2: p(control, 0.94))
-        path.addLine(to: p(0, 1))                   // square heel corner
+        path.addLine(to: p(du, 1))
+        if du > 0 {
+            path.addQuadCurve(to: p(0, 1 - dv), control: p(0, 1))
+            path.addLine(to: p(0, dv))
+            path.addQuadCurve(to: p(du, 0), control: p(0, 0))
+        } else {
+            path.addLine(to: p(0, 1))               // square heel corner
+        }
         path.closeSubpath()
         return path
     }
@@ -125,7 +143,11 @@ struct ReedView: View {
     private let outline = Color(hex: 0x8C6A28)
     private let worn = Color(hex: 0x8A7346)
 
-    private var shape: ReedShape { ReedShape(axis: axis) }
+    /// The heel is cut square, but a cut edge is never a perfect right angle
+    /// and a hard 90° corner nested inside a moulded bay pinches the clearance
+    /// at the corners to nothing. Five points reads as square and sits
+    /// concentric inside the bay's own nine.
+    private var shape: ReedShape { ReedShape(axis: axis, heelRadius: 5) }
 
     var body: some View {
         GeometryReader { geo in
