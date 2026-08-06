@@ -211,6 +211,12 @@ struct LifespanKey: Hashable, Sendable {
     var modelDisplayName: String { "\(brandName) \(modelName)" }
     var fullDisplayName: String { "\(brandName) \(modelName) \(strengthLabel)" }
 
+    /// Whichever of the two the grouping produced: a model-only key has no
+    /// strength to show.
+    var displayName: String {
+        strengthLabel.isEmpty ? modelDisplayName : fullDisplayName
+    }
+
     /// The same key with strength dropped, for per-model roll-ups.
     var modelOnly: LifespanKey {
         LifespanKey(brandID: brandID, modelID: modelID, strengthLabel: "",
