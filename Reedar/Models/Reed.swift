@@ -45,6 +45,10 @@ final class Reed {
     var isFavourite: Bool = false
     /// Still in the case and still fine, you just aren't playing it. Different
     /// from retired: nothing died, so it stays out of the lifespan figures.
+    /// No longer used. "Set aside" was a third way of saying a reed was out of
+    /// play, alongside retiring it and simply not picking it up, and it left
+    /// two greyed-out reasons a reed could look inactive. The property stays so
+    /// existing stores still open.
     var isSetAside: Bool = false
 
     @Relationship(deleteRule: .cascade, inverse: \PlaySession.reed)
@@ -101,7 +105,7 @@ extension Reed {
     var isRetired: Bool { retiredAt != nil }
 
     /// A reed actually in play: not retired, not set aside.
-    var isInRotation: Bool { !isRetired && !isSetAside }
+    var isInRotation: Bool { !isRetired }
 
     var orderedSessions: [PlaySession] {
         (sessions ?? []).sorted { $0.date > $1.date }
@@ -135,13 +139,13 @@ extension Reed {
         return max(0, Calendar.current.dateComponents([.day], from: last, to: Date()).day ?? 0)
     }
 
-    /// "Rested 3d", "Played today", "New".
+    /// Said the way a person would say it: "Played today", "Rested 4 days".
     var restLabel: String {
-        guard let days = daysRested else { return "New" }
+        guard let days = daysRested else { return "Not played yet" }
         switch days {
         case 0: return "Played today"
-        case 1: return "Rested 1d"
-        default: return "Rested \(days)d"
+        case 1: return "Rested 1 day"
+        default: return "Rested \(days) days"
         }
     }
 

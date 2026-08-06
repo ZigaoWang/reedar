@@ -98,7 +98,6 @@ enum SampleData {
 
         // A reed the player favours, and one they've stopped reaching for.
         javaRed.isFavourite = true
-        fresh.isSetAside = true
 
         old1.retiredAt = daysAgo(64)
         old1.retireReasonRaw = RetireReason.wentFlat.rawValue

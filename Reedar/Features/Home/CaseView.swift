@@ -122,6 +122,14 @@ struct CaseView: View {
         return result
     }
 
+    /// The reed a given slot is showing right now, carry included.
+    private func reed(inSlot index: Int, height: CGFloat) -> Reed? {
+        activeReeds.first { reed in
+            let isCarried = reed.id == carry?.id && carry?.isLifted == true
+            return !isCarried && displaySlot(of: reed, height: height) == index
+        }
+    }
+
     private func slotY(_ index: Int, height: CGFloat) -> CGFloat {
         CGFloat(index) * (height + slotGap)
     }
@@ -207,10 +215,10 @@ struct CaseView: View {
     private var subtitle: String {
         if carry?.isLifted == true { return "Drop it in any slot" }
         if activeReeds.isEmpty { return "Tap a slot to add your first reed" }
-        if let next = nextUp { return "Play \(next.slotTitle) next" }
+        if let next = nextUp { return "\(next.slotTitle) has rested longest" }
         return weekMinutes > 0
-            ? "\(Format.duration(minutes: weekMinutes)) played this week"
-            : "Nothing logged this week"
+            ? "You played \(Format.duration(minutes: weekMinutes)) this week"
+            : "You haven't logged anything this week"
     }
 
     /// The reed that has rested longest, if there's a useful answer.
@@ -409,6 +417,7 @@ struct SlotMoulding<Content: View>: View {
                     // bright where the far one turns back toward it.
                     Light.topShade(shape, radius: 3, width: 3.5, opacity: 0.85)
                     Light.bottomCatch(shape, width: 1.4, opacity: 0.07)
+
                     shape.strokeBorder(isTarget ? Palette.accent.opacity(0.8) : Palette.hairline,
                                        lineWidth: isTarget ? 2 : 1)
                 }
@@ -453,19 +462,10 @@ struct ReedRow: View {
     private let caneInk = Color(hex: 0x4A3413)
 
     var body: some View {
+        // Every reed looks like a reed. With three states named in plain
+        // words there is nothing left to encode in colour or dimming, and a
+        // greyed-out row only ever raised the question of why.
         ReedView(axis: .horizontalReversed, wear: wear)
-            .saturation(reed.isSetAside ? 0.35 : 1)
-            .opacity(reed.isSetAside ? 0.55 : 1)
-            .overlay(alignment: .leading) {
-                // A tab of colour on the reed that's due, so the line in the
-                // header has something to point at.
-                if isNextUp {
-                    Capsule()
-                        .fill(Palette.accent)
-                        .frame(width: 4, height: 26)
-                        .padding(.leading, 6)
-                }
-            }
             .overlay {
                 HStack(alignment: .center, spacing: 10) {
                     VStack(alignment: .leading, spacing: 2) {
@@ -481,10 +481,17 @@ struct ReedRow: View {
                                 .lineLimit(1)
                                 .minimumScaleFactor(0.7)
                         }
-                        Text(subtitle)
-                            .font(.copy(12.5, weight: .medium))
-                            .foregroundStyle(caneInk.opacity(isNextUp ? 0.85 : 0.62))
-                            .lineLimit(1)
+                        HStack(spacing: 5) {
+                            Text(statusLabel)
+                                .font(.copy(12.5, weight: isNextUp ? .bold : .semibold))
+                                .foregroundStyle(caneInk.opacity(isNextUp ? 1 : 0.8))
+                            if let total {
+                                Text(total)
+                                    .font(.copy(12.5))
+                                    .foregroundStyle(caneInk.opacity(0.55))
+                            }
+                        }
+                        .lineLimit(1)
                     }
 
                     Spacer(minLength: 4)
@@ -504,17 +511,24 @@ struct ReedRow: View {
                         .font(.system(size: 12, weight: .semibold))
                         .foregroundStyle(caneInk.opacity(0.45))
                 }
-                .padding(.leading, 18)
+                .padding(.leading, 14)
                 .padding(.trailing, 14)
             }
     }
 
-    private var subtitle: String {
-        let hours = Format.hours(minutes: reed.playingMinutes)
-        if reed.isSetAside { return "\(hours)h · set aside" }
-        if reed.isBreakingIn { return "\(hours)h · breaking in" }
-        guard reed.sessionCount > 0 else { return "Not played yet" }
-        return "\(hours)h · \(reed.restLabel.lowercased())"
+    private var status: ReedStatus { reed.status(against: expectation) }
+
+    /// The reed that has rested longest says so, in place of "Ready". Every
+    /// reed reading "Ready" answers what state they are in and none of them
+    /// answers the only question the case is ever opened to settle.
+    private var statusLabel: String {
+        isNextUp && status == .ready ? "Play this next" : status.label
+    }
+
+    /// Hours only once there are any. "0.0h played" on a new reed is noise.
+    private var total: String? {
+        guard reed.playingMinutes > 0 else { return nil }
+        return "· \(Format.hours(minutes: reed.playingMinutes))h"
     }
 }
 
