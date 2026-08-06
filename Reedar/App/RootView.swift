@@ -15,31 +15,21 @@ struct RootView: View {
             .preferredColorScheme(.dark)
             .tint(Palette.accent)
             .task { Haptics.warmUp() }
-            // The depth in the hand-off belongs to the veil, not to the case.
-            //
-            // The case used to be held back at 0.98 and released as the veil
-            // lifted, which looked right and laid out wrong: a scale is a
-            // geometry effect, and under one SwiftUI stops honouring the
+            // Nothing here transforms the case, and nothing here transforms the
+            // veil's black either. Both were tried and both were wrong: a scale
+            // is a geometry effect, and under one SwiftUI stops honouring the
             // `ignoresSafeArea(edges: .bottom)` the case is built on. The case
-            // spent the whole veil 34pt short, and the frame the scale reached
-            // 1 it grew into the home indicator — mouldings snapping to their
-            // new height while the reeds sprang after them. That was the jolt
-            // a moment after the splash.
+            // spent the whole veil 34pt short and grew into the home indicator
+            // the frame the scale reached 1 — mouldings snapping to their new
+            // height, reeds springing after them. That was the jolt a moment
+            // after the splash.
             //
-            // The veil carries the motion instead. Nothing under it is
-            // transformed, so nothing under it is ever laid out twice.
+            // So the veil is mounted and unmounted, nothing more. It runs its
+            // own fade internally and only asks to be taken down once it is
+            // already invisible, which is why there is no transition here.
             .overlay {
                 if showingVeil {
                     LaunchVeil(isPresented: $showingVeil)
-                        // It withdraws toward the viewer as it goes, which
-                        // reads as the case settling forward without moving
-                        // the case at all.
-                        .transition(.opacity.combined(with: .scale(scale: 1.03)))
-                        // Same reason, from the other side: the veil's own
-                        // black is laid out to the glass here rather than
-                        // inside it, so the transform can't leave a hairline
-                        // of case showing along an edge.
-                        .ignoresSafeArea()
                 }
             }
     }
