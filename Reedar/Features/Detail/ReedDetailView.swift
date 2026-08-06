@@ -27,8 +27,9 @@ struct ReedDetailView: View {
         ScrollView {
             VStack(spacing: Metrics.stack) {
                 header
-                if reed.isBreakingIn { breakInNote }
-                if let expectation { lifeSection(expectation) }
+                statusPanel
+                stats
+                lifeSection
                 if !reed.isRetired { controls }
                 if reed.isRetired { retiredNote }
                 if !reed.notes.isEmpty { notes }
@@ -55,16 +56,6 @@ struct ReedDetailView: View {
                     } label: {
                         Label(reed.isFavourite ? "Remove from favourites" : "Mark as favourite",
                               systemImage: reed.isFavourite ? "star.slash" : "star")
-                    }
-
-                    if !reed.isRetired {
-                        Button {
-                            reed.isSetAside.toggle()
-                            Haptics.tick()
-                        } label: {
-                            Label(reed.isSetAside ? "Put back in rotation" : "Stop playing this one",
-                                  systemImage: reed.isSetAside ? "arrow.uturn.backward" : "pause.circle")
-                        }
                     }
 
                     Divider()
@@ -105,84 +96,123 @@ struct ReedDetailView: View {
                 dismiss()
             }
         } message: {
-            Text("Retiring keeps its history in your lifespan data. Deleting removes it for good.")
+            Text("Retiring keeps this reed's hours in your averages. Deleting removes it completely.")
         }
     }
 
     // MARK: Header
 
+    /// The reed itself, lying in a slot the width of the screen — the same
+    /// object, the same way up, as the one you tapped in the case. Stood on
+    /// end in a column beside the text it was a thumbnail of a reed; across
+    /// the top at its true proportions it is the reed.
     private var header: some View {
-        HStack(alignment: .top, spacing: 16) {
+        VStack(alignment: .leading, spacing: 14) {
             ReedView(
-                axis: .vertical,
+                axis: .horizontalReversed,
                 wear: wear,
                 stamp: reed.brandName,
                 strengthStamp: reed.strengthLabel,
                 isRetired: reed.isRetired
             )
-            .frame(width: 54, height: 164)
-            .padding(.vertical, 10)
-            .padding(.horizontal, 14)
+            .aspectRatio(Metrics.reedLyingAspect, contentMode: .fit)
+            .frame(maxWidth: .infinity)
+            .padding(9)
             .milled(radius: Metrics.radiusSlot)
 
-            VStack(alignment: .leading, spacing: 12) {
-                VStack(alignment: .leading, spacing: 5) {
-                    HStack(spacing: 5) {
-                        if reed.isFavourite {
-                            Image(systemName: "star.fill")
-                                .font(.system(size: 12, weight: .semibold))
-                                .foregroundStyle(Palette.accent)
-                        }
-                        Text(reed.modelDisplayName)
-                            .font(.heading(15, weight: .bold))
-                            .foregroundStyle(Palette.ink)
+            VStack(alignment: .leading, spacing: 7) {
+                HStack(spacing: 7) {
+                    if reed.isFavourite {
+                        Image(systemName: "star.fill")
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundStyle(Palette.accent)
                     }
-                    Text("\(reed.strengthLabel) · \(reed.instrument.displayName)")
-                        .font(.copy(12))
-                        .foregroundStyle(Palette.inkSecondary)
-                    if reed.isSetAside && !reed.isRetired {
-                        Tag(text: "Set aside", symbol: "pause.circle")
-                    }
+                    Text(reed.modelDisplayName)
+                        .font(.title(22))
+                        .foregroundStyle(Palette.ink)
+                        .lineLimit(2)
+                        .minimumScaleFactor(0.8)
                 }
-
-                Display(value: Format.hours(minutes: reed.playingMinutes), unit: "h",
-                        label: "Playing time", size: 30,
-                        tint: reed.isRetired ? Palette.ink : Palette.accent)
-
-                HStack(spacing: 8) {
-                    miniStat("\(reed.sessionCount)", "Sessions")
-                    Rectangle().fill(Palette.hairline).frame(width: 1, height: 22)
-                    miniStat(reed.daysRested.map { "\($0)d" } ?? "—", "Rested")
-                }
+                Text("\(reed.strengthLabel) · \(reed.instrument.displayName)")
+                    .font(.copy(13))
+                    .foregroundStyle(Palette.inkSecondary)
             }
         }
         .padding(14)
         .raised(depth: .medium)
     }
 
-    private func miniStat(_ value: String, _ label: String) -> some View {
-        VStack(alignment: .leading, spacing: 1) {
-            Text(value)
-                .font(.numeric(15, weight: .semibold))
-                .foregroundStyle(Palette.ink)
-            Text(label).microLabel(Palette.inkTertiary)
+    /// The three numbers, side by side and weighted the same, in one recess.
+    /// They were a stack of a big inset display and two small figures crammed
+    /// into a column, which read as three different kinds of thing.
+    private var stats: some View {
+        HStack(spacing: 0) {
+            statCell(Format.hours(minutes: reed.playingMinutes), unit: "h",
+                     label: "Playing time",
+                     tint: reed.isRetired ? Palette.ink : Palette.accent)
+            statRule
+            statCell("\(reed.sessionCount)", label: "Sessions")
+            statRule
+            statCell(reed.daysRested.map { "\($0)" } ?? "—",
+                     unit: reed.daysRested == nil ? nil : "d",
+                     label: "Rested")
         }
+        .padding(.vertical, 15)
+        .milled(radius: Metrics.radiusInner)
     }
 
-    /// A reed straight out of the box wants easing in. Saying so once, on the
-    /// reed itself, is worth more than a tip buried in a settings screen.
-    private var breakInNote: some View {
-        Panel {
+    private var statRule: some View {
+        Rectangle().fill(Palette.hairline).frame(width: 1, height: 34)
+    }
+
+    private func statCell(_ value: String,
+                          unit: String? = nil,
+                          label: String,
+                          tint: Color = Palette.ink) -> some View {
+        VStack(spacing: 4) {
+            HStack(alignment: .firstTextBaseline, spacing: 2) {
+                Text(value)
+                    .font(.numeric(26))
+                    .foregroundStyle(tint)
+                    .contentTransition(.numericText())
+                if let unit {
+                    Text(unit)
+                        .font(.numeric(13, weight: .medium))
+                        .foregroundStyle(tint.opacity(0.55))
+                }
+            }
+            .lineLimit(1)
+            .minimumScaleFactor(0.6)
+            Text(label).microLabel(Palette.inkTertiary)
+        }
+        .frame(maxWidth: .infinity)
+    }
+
+    /// The one thing the page has to answer: can I play this, and how much is
+    /// left in it. One state, one colour, one sentence — not four separate
+    /// readings for the player to combine in their head.
+    /// The state, then anything worth knowing about this particular reed, in
+    /// one paragraph. Break-in advice used to be a second panel below this
+    /// one, which read as a competing headline rather than a footnote to it.
+    private var detail: String {
+        let state = reed.statusDetail(against: expectation)
+        guard reed.isBreakingIn, !reed.isRetired else { return state }
+        return state + " It is still new, so keep sessions to 10 or 15 minutes and let it dry fully in between. It will last longer."
+    }
+
+    private var statusPanel: some View {
+        let status = reed.status(against: expectation)
+        return Panel {
             VStack(alignment: .leading, spacing: 8) {
-                HStack(spacing: 8) {
-                    Image(systemName: "leaf")
-                        .font(.system(size: 13, weight: .semibold))
-                        .foregroundStyle(Palette.accent)
-                    Text("Breaking in")
-                        .font(.heading(15))
+                HStack(spacing: 9) {
+                    Image(systemName: status.symbolName)
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundStyle(status.tint)
+                    Text(status.label)
+                        .font(.heading(16))
                         .foregroundStyle(Palette.ink)
                 }
-                Text("Give a new reed a few short sessions — ten or fifteen minutes — and let it dry out fully in between. It settles better and lasts longer for it.")
+                Text(detail)
                     .font(.copy(13))
                     .foregroundStyle(Palette.inkSecondary)
                     .fixedSize(horizontal: false, vertical: true)
@@ -192,12 +222,17 @@ struct ReedDetailView: View {
 
     // MARK: Life
 
-    private func lifeSection(_ expectation: LifespanSummary) -> some View {
+    /// Always here, even before there's anything to compare against. A panel
+    /// that appears only once the app has enough data is a panel nobody knows
+    /// exists, and the reason it's empty is worth saying out loud.
+    private var lifeSection: some View {
         Panel {
             VStack(alignment: .leading, spacing: 11) {
-                RuleHeader("Life", trailing: "\(Format.hours(minutes: expectation.averageMinutes))h avg")
-                LEDBar(progress: wear, segments: 18, height: 9)
-                Text(lifeText(expectation))
+                RuleHeader("Life", trailing: expectation.map {
+                    "\(Format.hours(minutes: $0.averageMinutes))h avg"
+                })
+                LEDBar(progress: expectation == nil ? 0 : wear, segments: 18, height: 9)
+                Text(expectation.map(lifeText) ?? noExpectationText)
                     .font(.copy(12))
                     .foregroundStyle(Palette.inkSecondary)
                     .fixedSize(horizontal: false, vertical: true)
@@ -205,16 +240,22 @@ struct ReedDetailView: View {
         }
     }
 
+    /// Why the bar is dark, and what fills it in.
+    private var noExpectationText: String {
+        "Retire a few \(reed.modelDisplayName) reeds and Reedar will work out how long they last you. This bar then shows how much life this one has left."
+    }
+
     private func lifeText(_ expectation: LifespanSummary) -> String {
         let basis = expectation.key.strengthLabel.isEmpty
             ? expectation.key.modelDisplayName
             : expectation.key.fullDisplayName
-        let sample = "\(Format.count(expectation.sampleCount, "retired reed"))"
+        let average = Format.duration(minutes: expectation.averageMinutes)
+        let sample = Format.count(expectation.sampleCount, "retired reed")
         if wear >= 1 {
-            return "Past the \(Format.duration(minutes: expectation.averageMinutes)) your \(basis) reeds usually last, from \(sample). Worth checking how it still feels."
+            return "Your \(basis) reeds last about \(average), based on \(sample). This one is past that, so check how it plays."
         }
         let left = expectation.averageMinutes - Double(reed.playingMinutes)
-        return "Your \(basis) reeds last about \(Format.duration(minutes: expectation.averageMinutes)), from \(sample). Roughly \(Format.duration(minutes: left)) to go."
+        return "Your \(basis) reeds last about \(average), based on \(sample). This one has about \(Format.duration(minutes: left)) left."
     }
 
     // MARK: Controls

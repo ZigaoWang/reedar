@@ -15,6 +15,14 @@ enum Metrics {
     /// A sax reed is about 2cm across and 7cm long — roughly 1 : 3.4. Anything
     /// narrower reads as a clarinet reed, or a chopstick.
     static let reedAspect: CGFloat = 3.4
+
+    /// A reed lying down, shown on its own. Longer than life, because that is
+    /// how a reed reads in a slot the width of the screen, but not as drawn
+    /// out as an actual case row. At true proportions it looks like a fatter,
+    /// different object next to the case; at full slot proportions it is a
+    /// strip. Anywhere a reed lies down outside the case uses this, so it is
+    /// the same reed from screen to screen.
+    static let reedLyingAspect: CGFloat = 4.6
     static let hairline: CGFloat = 1
 }
 
