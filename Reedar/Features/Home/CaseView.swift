@@ -220,11 +220,11 @@ struct CaseView: View {
 
     private var subtitle: String {
         if carry?.isLifted == true { return "Drop it in any slot" }
-        if activeReeds.isEmpty { return "Tap a slot to add your first reed" }
+        if activeReeds.isEmpty { return "Tap a slot to add a reed" }
         if let next = nextUp { return "\(next.slotTitle) has rested longest" }
         return weekMinutes > 0
-            ? "You played \(Format.duration(minutes: weekMinutes)) this week"
-            : "You haven't logged anything this week"
+            ? "\(Format.duration(minutes: weekMinutes)) this week"
+            : "Nothing played this week"
     }
 
     /// The reed that has rested longest, if there's a useful answer.
@@ -266,7 +266,7 @@ struct CaseView: View {
 
                     ReedRow(
                         reed: reed,
-                        expectation: LifespanStats.expectation(for: reed, among: allReeds),
+                        estimate: LifespanStats.estimate(for: reed, among: allReeds),
                         isNextUp: reed.id == nextUp?.id
                     )
                     .padding(4)
@@ -472,13 +472,13 @@ struct SlotMoulding<Content: View>: View {
 /// the bark. No background of its own — the slot provides it.
 struct ReedRow: View {
     var reed: Reed
-    var expectation: LifespanSummary?
+    var estimate: LifespanEstimate
     /// The reed that has rested longest — the one to play next.
     var isNextUp: Bool = false
 
     private var wear: Double {
-        guard let expectation, expectation.averageMinutes > 0 else { return 0 }
-        return Double(reed.playingMinutes) / expectation.averageMinutes
+        guard estimate.minutes > 0 else { return 0 }
+        return Double(reed.playingMinutes) / estimate.minutes
     }
 
     /// Ink for text printed straight onto cane.
@@ -539,7 +539,7 @@ struct ReedRow: View {
             }
     }
 
-    private var status: ReedStatus { reed.status(against: expectation) }
+    private var status: ReedStatus { reed.status(against: estimate) }
 
     /// The reed that has rested longest says so, in place of "Ready". Every
     /// reed reading "Ready" answers what state they are in and none of them

@@ -49,11 +49,10 @@ enum ReedStatus {
 
 extension Reed {
     /// The one status, worked out in the order the cases are written.
-    func status(against expectation: LifespanSummary?) -> ReedStatus {
+    func status(against estimate: LifespanEstimate) -> ReedStatus {
         if isRetired { return .retired }
 
-        if let expectation, expectation.averageMinutes > 0,
-           Double(playingMinutes) >= expectation.averageMinutes {
+        if estimate.minutes > 0, Double(playingMinutes) >= estimate.minutes {
             return .wornOut
         }
         // A day is the shortest honest answer to "can I play this again", so
@@ -62,20 +61,19 @@ extension Reed {
         return .ready
     }
 
-    /// One plain sentence saying what to do about it.
-    func statusDetail(against expectation: LifespanSummary?) -> String {
-        switch status(against: expectation) {
+    /// A few words. Anyone reading this is deciding whether to pick the reed
+    /// up, not reading an explanation of reeds.
+    func statusDetail(against estimate: LifespanEstimate) -> String {
+        switch status(against: estimate) {
         case .ready:
-            guard sessionCount > 0 else { return "Not played yet. Good to go." }
-            return "\(restLabel). Good to play."
+            return sessionCount > 0 ? restLabel : "Not played yet"
         case .playedToday:
-            return "You played it today. Give it a day to dry before playing it again."
+            return "Let it dry. Play it tomorrow."
         case .wornOut:
-            guard let expectation else { return "Past what you usually get from this one." }
-            return "It has passed the \(Format.duration(minutes: expectation.averageMinutes)) your \(modelDisplayName) reeds usually give you. Retire it when it stops feeling right."
+            return "Past \(Format.duration(minutes: estimate.minutes)). Retire it when it feels wrong."
         case .retired:
-            guard let date = retiredAt else { return "In the archive." }
-            return "Retired on \(Format.mediumDate(date))."
+            guard let date = retiredAt else { return "In the archive" }
+            return "Retired \(Format.mediumDate(date))"
         }
     }
 }

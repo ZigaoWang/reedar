@@ -14,13 +14,13 @@ struct ReedDetailView: View {
     @State private var editingSession: PlaySession?
     @State private var confirmingDelete = false
 
-    private var expectation: LifespanSummary? {
-        LifespanStats.expectation(for: reed, among: allReeds)
+    private var estimate: LifespanEstimate {
+        LifespanStats.estimate(for: reed, among: allReeds)
     }
 
     private var wear: Double {
-        guard let expectation, expectation.averageMinutes > 0 else { return 0 }
-        return Double(reed.playingMinutes) / expectation.averageMinutes
+        guard estimate.minutes > 0 else { return 0 }
+        return Double(reed.playingMinutes) / estimate.minutes
     }
 
     var body: some View {
@@ -96,7 +96,7 @@ struct ReedDetailView: View {
                 dismiss()
             }
         } message: {
-            Text("Retiring keeps this reed's hours in your averages. Deleting removes it completely.")
+            Text("Retiring keeps its hours. Deleting removes everything.")
         }
     }
 
@@ -195,13 +195,14 @@ struct ReedDetailView: View {
     /// one paragraph. Break-in advice used to be a second panel below this
     /// one, which read as a competing headline rather than a footnote to it.
     private var detail: String {
-        let state = reed.statusDetail(against: expectation)
+        let state = reed.statusDetail(against: estimate)
         guard reed.isBreakingIn, !reed.isRetired else { return state }
-        return state + " It is still new, so keep sessions to 10 or 15 minutes and let it dry fully in between. It will last longer."
+        return state.hasSuffix(".") ? state + " New reed, keep sessions short."
+                                    : state + ". New reed, keep sessions short."
     }
 
     private var statusPanel: some View {
-        let status = reed.status(against: expectation)
+        let status = reed.status(against: estimate)
         return Panel {
             VStack(alignment: .leading, spacing: 8) {
                 HStack(spacing: 9) {
@@ -228,11 +229,9 @@ struct ReedDetailView: View {
     private var lifeSection: some View {
         Panel {
             VStack(alignment: .leading, spacing: 11) {
-                RuleHeader("Life", trailing: expectation.map {
-                    "\(Format.hours(minutes: $0.averageMinutes))h avg"
-                })
-                LEDBar(progress: expectation == nil ? 0 : wear, segments: 18, height: 9)
-                Text(expectation.map(lifeText) ?? noExpectationText)
+                RuleHeader("Life", trailing: "\(Format.hours(minutes: estimate.minutes))h expected")
+                LEDBar(progress: wear, segments: 18, height: 9)
+                Text(lifeText)
                     .font(.copy(12))
                     .foregroundStyle(Palette.inkSecondary)
                     .fixedSize(horizontal: false, vertical: true)
@@ -240,22 +239,19 @@ struct ReedDetailView: View {
         }
     }
 
-    /// Why the bar is dark, and what fills it in.
-    private var noExpectationText: String {
-        "Retire a few \(reed.modelDisplayName) reeds and Reedar will work out how long they last you. This bar then shows how much life this one has left."
-    }
 
-    private func lifeText(_ expectation: LifespanSummary) -> String {
-        let basis = expectation.key.strengthLabel.isEmpty
-            ? expectation.key.modelDisplayName
-            : expectation.key.fullDisplayName
-        let average = Format.duration(minutes: expectation.averageMinutes)
-        let sample = Format.count(expectation.sampleCount, "retired reed")
-        if wear >= 1 {
-            return "Your \(basis) reeds last about \(average), based on \(sample). This one is past that, so check how it plays."
-        }
-        let left = expectation.averageMinutes - Double(reed.playingMinutes)
-        return "Your \(basis) reeds last about \(average), based on \(sample). This one has about \(Format.duration(minutes: left)) left."
+
+    /// Always says what the figure is based on. An estimate off a typical reed
+    /// and one off six of your own are very different claims, and the app
+    /// should not present them in the same voice.
+    private var lifeText: String {
+        let expected = Format.duration(minutes: estimate.minutes)
+        let left = estimate.minutes - Double(reed.playingMinutes)
+        let basis = estimate.isPersonal
+            ? "\(expected) is the average for \(estimate.source), from \(Format.count(estimate.sampleCount, "reed"))."
+            : "\(expected) is what \(estimate.source) lasts. Retire one of your own to make this yours."
+        if left <= 0 { return "Past \(expected). " + basis }
+        return "About \(Format.duration(minutes: left)) left. " + basis
     }
 
     // MARK: Controls

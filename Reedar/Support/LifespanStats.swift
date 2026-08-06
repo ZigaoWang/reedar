@@ -69,12 +69,63 @@ enum LifespanStats {
         .sorted { $0.averageMinutes > $1.averageMinutes }
     }
 
-    /// The expected lifespan for an active reed: its own model+strength if the
-    /// player has retired any, otherwise the model pooled across strengths.
+    /// A rough figure for a cane sax reed: a couple of weeks of daily playing.
+    /// Only used until the player has retired anything of their own, and always
+    /// labelled as not theirs.
+    static let typicalMinutes: Double = 12 * 60
+
+    /// What this reed is expected to last, always.
+    ///
+    /// It used to need a retired reed of the same model, which never arrives if
+    /// you only ever buy one of something. So it falls back: the same model and
+    /// strength, then the model at any strength, then everything you have
+    /// retired, then a typical reed. Every answer carries where it came from, so
+    /// the app can say so instead of quietly presenting a guess as a measurement.
+    static func estimate(for reed: Reed, among reeds: [Reed]) -> LifespanEstimate {
+        if let exact = byStrength(reeds).first(where: { $0.key == reed.lifespanKey }),
+           exact.sampleCount >= 2 {
+            return LifespanEstimate(minutes: exact.averageMinutes,
+                                    sampleCount: exact.sampleCount,
+                                    source: "your \(reed.fullName) reeds")
+        }
+        if let model = byModel(reeds).first(where: { $0.key == reed.lifespanKey.modelOnly }) {
+            return LifespanEstimate(minutes: model.averageMinutes,
+                                    sampleCount: model.sampleCount,
+                                    source: "your \(reed.modelDisplayName) reeds")
+        }
+
+        let counted = reeds.filter(\.isRetired)
+            .filter { $0.retireReason?.countsTowardLifespan ?? true }
+        if !counted.isEmpty {
+            let average = Double(counted.reduce(0) { $0 + $1.playingMinutes }) / Double(counted.count)
+            return LifespanEstimate(minutes: average,
+                                    sampleCount: counted.count,
+                                    source: "your reeds so far")
+        }
+
+        return LifespanEstimate(minutes: typicalMinutes, sampleCount: 0, source: "a typical reed")
+    }
+
+    /// The matching summary, where the richer figures are wanted. Nil until the
+    /// player has retired something of that model.
     static func expectation(for reed: Reed, among reeds: [Reed]) -> LifespanSummary? {
         let exact = byStrength(reeds).first { $0.key == reed.lifespanKey }
         if let exact, exact.sampleCount >= 2 { return exact }
         let model = byModel(reeds).first { $0.key == reed.lifespanKey.modelOnly }
         return exact ?? model
     }
+}
+
+/// How long a reed is expected to last, and what that is based on.
+struct LifespanEstimate {
+    var minutes: Double
+    /// How many of the player's own retired reeds are behind it. Zero means the
+    /// standard figure, which is nobody's reed in particular.
+    var sampleCount: Int
+    /// Said the way it reads in a sentence: "your Vandoren Java reeds".
+    var source: String
+
+    var isPersonal: Bool { sampleCount > 0 }
+    /// Under three reeds an average is a rumour, not a statistic.
+    var isConfident: Bool { sampleCount >= 3 }
 }
