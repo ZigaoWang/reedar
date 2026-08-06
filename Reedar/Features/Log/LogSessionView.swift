@@ -254,16 +254,15 @@ struct LogSessionView: View {
     private var reviewPage: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 14) {
+                outcome
                 VStack(spacing: 0) {
-                    summaryRow("Session", value: sessionContext.displayName)
+                    summaryRow("Type", value: sessionContext.displayName)
                     divider
-                    summaryRow("Length", value: Format.duration(minutes: totalMinutes))
+                    summaryRow("You were there", value: Format.duration(minutes: totalMinutes))
                     divider
                     whenRow
                     divider
                     playingRow
-                    divider
-                    totalRow
                 }
                 .padding(.vertical, 4)
                 .raised(depth: .low)
@@ -305,33 +304,66 @@ struct LogSessionView: View {
         .padding(.vertical, 13)
     }
 
-    /// The one figure the app worked out for you, with its reasoning and a way
-    /// to overrule it.
-    private var playingRow: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack {
-                Text("Counts as playing")
-                    .font(.copy(15))
+    /// What the save actually does, said before the details rather than as the
+    /// last row of them. "1.2h → 1.2h" was the payoff of the whole sheet and it
+    /// could round to the same number twice; "+55m" cannot.
+    private var outcome: some View {
+        Panel(padding: 16) {
+            VStack(alignment: .leading, spacing: 5) {
+                // A word, not a unit: it needs a word space, not the hairline
+                // gap that sits between a figure and its "h".
+                HStack(alignment: .firstTextBaseline, spacing: 7) {
+                    Text("+\(Format.duration(minutes: playingMinutes))")
+                        .font(.numeric(32))
+                        .foregroundStyle(Palette.accent)
+                        .contentTransition(.numericText())
+                    Text("playing")
+                        .font(.copy(15))
+                        .foregroundStyle(Palette.accent.opacity(0.7))
+                }
+                Text("\(reed.displayTitle): \(Format.hours(minutes: reed.playingMinutes))h → \(Format.hours(minutes: newTotal))h")
+                    .font(.copy(13))
                     .foregroundStyle(Palette.inkSecondary)
-                Spacer(minLength: 8)
-                Text(Format.duration(minutes: playingMinutes))
-                    .font(.copy(15, weight: .bold))
-                    .foregroundStyle(Palette.accent)
                     .contentTransition(.numericText())
             }
+        }
+    }
 
-            Text(sessionContext.ratioExplanation)
-                .font(.copy(12.5))
-                .foregroundStyle(Palette.inkTertiary)
-                .fixedSize(horizontal: false, vertical: true)
+    /// Only part of a rehearsal is spent with the reed in your mouth, and only
+    /// that part wears it out. Said as "55m of 2h" it needs no explaining;
+    /// "counts as playing" needed a sentence under it every time.
+    private var playingRow: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Button {
+                withAnimation(.mechanical) { showingAdjust.toggle() }
+            } label: {
+                HStack {
+                    Text("Actually playing")
+                        .font(.copy(15))
+                        .foregroundStyle(Palette.inkSecondary)
+                    Spacer(minLength: 8)
+                    Text("\(Format.duration(minutes: playingMinutes)) of \(Format.duration(minutes: totalMinutes))")
+                        .font(.copy(15, weight: .semibold))
+                        .foregroundStyle(Palette.accent)
+                        .contentTransition(.numericText())
+                    Image(systemName: showingAdjust ? "chevron.up" : "chevron.down")
+                        .font(.system(size: 11, weight: .bold))
+                        .foregroundStyle(Palette.inkTertiary)
+                }
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
 
             if showingAdjust {
+                Text(sessionContext.ratioExplanation)
+                    .font(.copy(12.5))
+                    .foregroundStyle(Palette.inkTertiary)
                 Slider(value: $ratio, in: 0.05...1) { editing in
                     if !editing { Haptics.tick() }
                 }
                 .tint(Palette.accent)
                 HStack {
-                    Text("\(Format.percent(ratio)) of the session")
+                    Text("\(Format.percent(ratio)) of the time")
                         .font(.copy(12))
                         .foregroundStyle(Palette.inkTertiary)
                     Spacer()
@@ -344,36 +376,7 @@ struct LogSessionView: View {
                     .font(.copy(12, weight: .semibold))
                     .foregroundStyle(Palette.accent)
                 }
-            } else {
-                Button("Not right? Adjust it") {
-                    withAnimation(.mechanical) { showingAdjust = true }
-                }
-                .font(.copy(13, weight: .semibold))
-                .foregroundStyle(Palette.accent)
             }
-        }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 13)
-    }
-
-    /// What saving does to the reed — the reason any of this is being typed in.
-    private var totalRow: some View {
-        HStack {
-            Text(reed.displayTitle)
-                .font(.copy(15))
-                .foregroundStyle(Palette.inkSecondary)
-                .lineLimit(1)
-            Spacer(minLength: 8)
-            Text("\(Format.hours(minutes: reed.playingMinutes))h")
-                .font(.numeric(15))
-                .foregroundStyle(Palette.inkSecondary)
-            Image(systemName: "arrow.right")
-                .font(.system(size: 11, weight: .bold))
-                .foregroundStyle(Palette.inkTertiary)
-            Text("\(Format.hours(minutes: newTotal))h")
-                .font(.numeric(15, weight: .bold))
-                .foregroundStyle(Palette.accent)
-                .contentTransition(.numericText())
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 13)
