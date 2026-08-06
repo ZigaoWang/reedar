@@ -77,7 +77,10 @@ struct LaunchVeil: View {
             return
         }
 
-        Haptics.launched()
+        // A damped spring reaches its target at roughly four fifths of its
+        // response, so that is where the haptic sets the mark down. Both come
+        // off the same number and stay in step if it is ever retuned.
+        Haptics.launched(landing: Self.rise * 0.8)
         withAnimation(.spring(response: Self.rise, dampingFraction: 0.82)) {
             hasArrived = true
         }

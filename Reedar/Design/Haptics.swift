@@ -107,35 +107,90 @@ final class Haptics {
         ])
     }
 
-    /// The mark arriving at launch: a low swell that rises under the finger
-    /// and resolves into a single soft landing — the case coming to hand.
-    static func launched() {
+    /// The mark arriving at launch. Four things happen, in this order, and it
+    /// only works because they are one continuous gesture rather than four
+    /// cues in a row:
+    ///
+    /// - a swell from below the threshold of feeling, so it arrives rather
+    ///   than starts
+    /// - a run of ticks over the top of it, the gaps closing each time, like a
+    ///   mechanism spinning up and finding its seat
+    /// - the landing, on the frame the mark settles
+    /// - a short warm tail under it, the way a heavy thing set down carries on
+    ///   for a moment after it stops
+    ///
+    /// `landing` is the anchor — the moment the mark comes to rest on screen.
+    /// Everything else is placed against it, so the caller can hand over the
+    /// one number that keeps the gesture in step with the animation.
+    static func launched(landing: TimeInterval = 0.44) {
         guard shared.engine != nil else {
-            UIImpactFeedbackGenerator(style: .soft).impactOccurred(intensity: 0.6)
+            let generator = UIImpactFeedbackGenerator(style: .heavy)
+            generator.impactOccurred(intensity: 0.9)
             return
         }
+
         let swell = CHHapticEvent(
             eventType: .hapticContinuous,
             parameters: [
-                .init(parameterID: .hapticIntensity, value: 0.55),
-                .init(parameterID: .hapticSharpness, value: 0.12),
+                .init(parameterID: .hapticIntensity, value: 0.75),
+                .init(parameterID: .hapticSharpness, value: 0.1),
             ],
             relativeTime: 0,
-            duration: 0.26
+            duration: landing
         )
-        // Nearly silent at the start, so the swell arrives rather than begins.
-        let rise = CHHapticParameterCurve(
+
+        // The tail is what sells the weight. Without it the landing is a
+        // click; with it, something with mass has come to rest.
+        let tail = CHHapticEvent(
+            eventType: .hapticContinuous,
+            parameters: [
+                .init(parameterID: .hapticIntensity, value: 0.6),
+                .init(parameterID: .hapticSharpness, value: 0.05),
+            ],
+            relativeTime: landing + 0.015,
+            duration: 0.24
+        )
+
+        // Closing gaps, as fractions of the run up to the landing, so the
+        // whole spin-up stretches with it. Evenly spaced reads as a buzz.
+        let ticks = [0.23, 0.42, 0.58, 0.71, 0.80, 0.87].enumerated().map { index, fraction in
+            let ramp = Double(index) / 5
+            return shared.transient(landing * fraction,
+                                    intensity: Float(0.35 + ramp * 0.25),
+                                    sharpness: Float(0.5 + ramp * 0.2))
+        }
+
+        // One curve per parameter, spanning the whole pattern — it scales the
+        // ticks along with the swell, which is what makes them emerge out of
+        // it instead of sitting on top.
+        let intensity = CHHapticParameterCurve(
             parameterID: .hapticIntensityControl,
             controlPoints: [
-                .init(relativeTime: 0, value: 0.05),
-                .init(relativeTime: 0.19, value: 1.0),
-                .init(relativeTime: 0.26, value: 0.5),
+                .init(relativeTime: 0, value: 0.03),
+                .init(relativeTime: landing * 0.35, value: 0.22),
+                .init(relativeTime: landing * 0.7, value: 0.55),
+                .init(relativeTime: landing - 0.02, value: 0.95),
+                .init(relativeTime: landing + 0.02, value: 1.0),
+                .init(relativeTime: landing + 0.06, value: 0.55),
+                .init(relativeTime: landing + 0.26, value: 0),
             ],
             relativeTime: 0
         )
+        // Dull all the way up, crisp at the seat, dull again as it decays.
+        let sharpness = CHHapticParameterCurve(
+            parameterID: .hapticSharpnessControl,
+            controlPoints: [
+                .init(relativeTime: 0, value: -0.6),
+                .init(relativeTime: landing * 0.75, value: -0.2),
+                .init(relativeTime: landing, value: 0.25),
+                .init(relativeTime: landing + 0.26, value: -0.4),
+            ],
+            relativeTime: 0
+        )
+
         shared.play(
-            [swell, shared.transient(0.26, intensity: 0.62, sharpness: 0.4)],
-            curves: [rise]
+            [swell] + ticks + [shared.transient(landing, intensity: 1, sharpness: 0.5), tail],
+            curves: [intensity, sharpness]
         )
     }
 
