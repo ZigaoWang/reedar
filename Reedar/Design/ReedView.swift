@@ -66,15 +66,24 @@ struct ReedShape: Shape {
 private struct VampShape: Shape {
     var axis: ReedAxis = .horizontal
 
-    /// Where the bark ends, as a fraction of the length from the heel.
-    static let barkLine = 0.31
-    /// Where the U's walls meet the bark line at the edges.
+    /// Roughly where the scrape begins, for shading that has to key off it.
+    static let barkLine = 0.38
+    /// Where the U's walls meet the edges, as a fraction of the length.
     private let wall = 0.43
-    /// The rounded bottom of the U, sitting just above the bark line.
-    private let base = 0.35
+    /// How far the middle of the U reaches back past the walls, as a fraction
+    /// of the reed's WIDTH.
+    private let reach = 0.27
 
     func path(in rect: CGRect) -> Path {
         let p = pointMapper(axis: axis, rect: rect)
+        let along = axis.isHorizontal ? rect.width : rect.height
+        let across = axis.isHorizontal ? rect.height : rect.width
+
+        // Like the tip, the scrape is set by the reed's WIDTH. Held as a
+        // fraction of the length instead, a reed drawn long and thin in a slot
+        // gets a long lazy arc and one drawn true to life gets a tight deep
+        // one — the same code, two different objects.
+        let base = wall - (along > 0 ? across * reach / along : 0.08)
 
         var path = Path()
         path.move(to: p(1.05, -0.05))
