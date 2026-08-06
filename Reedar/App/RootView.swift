@@ -15,15 +15,31 @@ struct RootView: View {
             .preferredColorScheme(.dark)
             .tint(Palette.accent)
             .task { Haptics.warmUp() }
-            // The case is already there behind the veil, held just barely back.
-            // It settles forward as the veil lifts — enough to read as depth,
-            // not enough to notice as an effect.
-            .scaleEffect(showingVeil ? 0.98 : 1)
-            .animation(.easeOut(duration: 0.5), value: showingVeil)
+            // The depth in the hand-off belongs to the veil, not to the case.
+            //
+            // The case used to be held back at 0.98 and released as the veil
+            // lifted, which looked right and laid out wrong: a scale is a
+            // geometry effect, and under one SwiftUI stops honouring the
+            // `ignoresSafeArea(edges: .bottom)` the case is built on. The case
+            // spent the whole veil 34pt short, and the frame the scale reached
+            // 1 it grew into the home indicator — mouldings snapping to their
+            // new height while the reeds sprang after them. That was the jolt
+            // a moment after the splash.
+            //
+            // The veil carries the motion instead. Nothing under it is
+            // transformed, so nothing under it is ever laid out twice.
             .overlay {
                 if showingVeil {
                     LaunchVeil(isPresented: $showingVeil)
-                        .transition(.opacity)
+                        // It withdraws toward the viewer as it goes, which
+                        // reads as the case settling forward without moving
+                        // the case at all.
+                        .transition(.opacity.combined(with: .scale(scale: 1.03)))
+                        // Same reason, from the other side: the veil's own
+                        // black is laid out to the glass here rather than
+                        // inside it, so the transform can't leave a hairline
+                        // of case showing along an edge.
+                        .ignoresSafeArea()
                 }
             }
     }
