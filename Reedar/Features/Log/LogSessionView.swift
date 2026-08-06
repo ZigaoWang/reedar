@@ -192,14 +192,14 @@ struct LogSessionView: View {
                     HStack(spacing: 7) {
                         Image(systemName: "leaf")
                             .font(.system(size: 12, weight: .semibold))
-                        Text("Still breaking in. Keep this session short.")
+                        Text("New reed. Keep it short.")
                             .font(.copy(13))
                     }
                     .foregroundStyle(Palette.accent)
                     .padding(.top, 4)
                 }
 
-                Text("Or type the exact time")
+                Text("Or set it exactly")
                     .font(.copy(13))
                     .foregroundStyle(Palette.inkTertiary)
                     .padding(.top, 6)
@@ -318,7 +318,7 @@ struct LogSessionView: View {
                     .contentTransition(.numericText())
             }
 
-            Text("\(sessionContext.ratioExplanation) Only the time you spend actually playing wears a reed out.")
+            Text(sessionContext.ratioExplanation)
                 .font(.copy(12.5))
                 .foregroundStyle(Palette.inkTertiary)
                 .fixedSize(horizontal: false, vertical: true)

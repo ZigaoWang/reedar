@@ -49,12 +49,12 @@ enum SessionContext: String, Codable, CaseIterable, Identifiable, Sendable {
 
     var ratioExplanation: String {
         switch self {
-        case .practice: "Mostly playing, some resting."
-        case .lesson: "About half talking and listening."
-        case .rehearsal: "Lots of counting bars and stopping."
-        case .gig: "Sets, breaks, and tunes you sit out."
-        case .session: "Long stretches of setup and playback."
-        case .audition: "Short and mostly playing."
+        case .practice: "Mostly playing"
+        case .lesson: "About half playing"
+        case .rehearsal: "Lots of waiting"
+        case .gig: "Sets and breaks"
+        case .session: "Lots of setup"
+        case .audition: "Short, mostly playing"
         }
     }
 }
