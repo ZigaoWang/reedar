@@ -213,7 +213,9 @@ struct LogSessionView: View {
                         .contentTransition(.numericText())
                     stepButton("plus", 5)
                 }
-                .padding(.vertical, 10)
+                // Both, not just vertical: the keys were sitting flush against
+                // the panel's own edge with nothing between them and it.
+                .padding(10)
                 .frame(maxWidth: .infinity)
                 .raised(depth: .low)
             }
