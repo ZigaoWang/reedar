@@ -66,7 +66,7 @@ struct RetireReedView: View {
                         .font(.heading(14, weight: .bold))
                         .foregroundStyle(Palette.ink)
                     Display(value: Format.hours(minutes: reed.playingMinutes), unit: "h",
-                            label: "Final playing time", size: 26)
+                            label: "Total playing time", size: 26)
                     if let comparison, comparison.sampleCount > 0 {
                         Text(verdict(against: comparison))
                             .font(.copy(11.5))
@@ -90,7 +90,7 @@ struct RetireReedView: View {
                     columns: 3
                 )
                 Text(reason.countsTowardLifespan
-                     ? "Counts toward your average for \(reed.modelDisplayName)."
+                     ? "This will count toward your \(reed.modelDisplayName) average."
                      : "A reed that chipped or got lost didn't wear out, so it won't count toward your averages.")
                     .font(.copy(11.5))
                     .foregroundStyle(Palette.inkTertiary)
@@ -121,11 +121,11 @@ struct RetireReedView: View {
         let delta = Double(reed.playingMinutes) - summary.averageMinutes
         let average = Format.duration(minutes: summary.averageMinutes)
         if abs(delta) < 30 {
-            return "Right on your \(average) average."
+            return "This one matched your \(average) average."
         }
         return delta > 0
-            ? "\(Format.duration(minutes: delta)) longer than your \(average) average."
-            : "\(Format.duration(minutes: -delta)) shorter than your \(average) average."
+            ? "This one lasted \(Format.duration(minutes: delta)) longer than your \(average) average."
+            : "This one lasted \(Format.duration(minutes: -delta)) less than your \(average) average."
     }
 
     private func retire() {

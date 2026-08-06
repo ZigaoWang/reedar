@@ -45,7 +45,7 @@ struct StatsView: View {
                             HStack(alignment: .top, spacing: 7) {
                                 Image(systemName: "hourglass")
                                     .font(.system(size: 10, weight: .semibold))
-                                Text("Averages from fewer than three reeds are marked early. They settle as you retire more.")
+                                Text("Averages from fewer than three reeds are marked early. They get more accurate as you retire more.")
                                     .font(.copy(11.5))
                             }
                             .foregroundStyle(Palette.inkSecondary)
@@ -149,7 +149,7 @@ struct StatsView: View {
             Panel(padding: 16) {
                 VStack(alignment: .leading, spacing: 9) {
                     RuleHeader("No data yet")
-                    Text("Retire a reed once it's done and its playing hours land here. After three or four you'll know how long your setup actually lasts.")
+                    Text("Retire a reed when it's done and its hours show up here. After three or four you'll know how long your reeds last.")
                         .font(.copy(12.5))
                         .foregroundStyle(Palette.inkSecondary)
                         .fixedSize(horizontal: false, vertical: true)
