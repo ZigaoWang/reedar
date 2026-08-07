@@ -8,12 +8,11 @@ enum Metrics {
     static let radiusKey: CGFloat = 12
     static let radiusSlot: CGFloat = 8
 
-    /// The case is the one thing on screen big enough to sit inside the
-    /// display itself, so its corners are struck concentric with the display's
-    /// own: an inner corner set back by an even margin has to lose exactly
-    /// that margin of radius, or the two curves run at different rates and the
-    /// gap between them pinches at the diagonal.
-    static var radiusCase: CGFloat { max(12, Screen.cornerRadius - screenMargin) }
+    /// The case doesn't sit on the screen — it is the screen, with its walls
+    /// out of frame. Its corners are the display's own corners, struck at the
+    /// same radius, because there is nothing between the two to set one back
+    /// from the other.
+    static var radiusCase: CGFloat { Screen.cornerRadius }
 
     static let gutter: CGFloat = 16
     static let screenMargin: CGFloat = 16

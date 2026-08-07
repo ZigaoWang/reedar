@@ -51,13 +51,19 @@ enum Palette {
                        startPoint: .top, endPoint: .bottom)
     }
 
-    /// The shell the case is milled out of.
-    static var caseFace: LinearGradient {
-        LinearGradient(colors: [Color(hex: 0x212126), Color(hex: 0x141417)],
+    /// A key standing proud of the case floor. Cut from lighter stock than
+    /// `trayFace`, or it reads as a recess however it's lit — but only just.
+    /// With the shell gone it is the one piece of hardware on an otherwise bare
+    /// floor, and struck any brighter it takes the eye off the reeds, which are
+    /// the only thing on this screen anybody opened it to look at.
+    static var keyFace: LinearGradient {
+        LinearGradient(colors: [Color(hex: 0x2A2A30), Color(hex: 0x1F1F25)],
                        startPoint: .top, endPoint: .bottom)
     }
 
-    /// The tray sunk into the shell, which the slots are cut into in turn.
+    /// The floor of the case, which the slots are cut into. There is no shell
+    /// above it any more — a wall drawn round the display has the bezel on the
+    /// other side of it, and reads as a stripe rather than as material.
     static var trayFace: LinearGradient {
         LinearGradient(colors: [Color(hex: 0x101013), Color(hex: 0x17171B)],
                        startPoint: .top, endPoint: .bottom)

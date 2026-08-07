@@ -199,6 +199,13 @@ final class Haptics {
         UIImpactFeedbackGenerator(style: .soft).impactOccurred(intensity: 0.7)
     }
 
+    /// A fingertip landing on the bare floor of an empty bay. Harder and
+    /// lighter than a reed, because there is no cane in the way — the only tap
+    /// in the case that used to return nothing at all.
+    static func slotTapped() {
+        UIImpactFeedbackGenerator(style: .rigid).impactOccurred(intensity: 0.55)
+    }
+
     static func tick() {
         UISelectionFeedbackGenerator().selectionChanged()
     }

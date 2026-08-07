@@ -144,19 +144,16 @@ struct CaseView: View {
 
     var body: some View {
         NavigationStack(path: $path) {
-            VStack(spacing: 14) {
-                header
-                caseBody
+            // The reader is laid out inside the safe area purely to be told
+            // where it is: the case then ignores it and runs to the glass on
+            // all four sides, and the insets come back as padding on what's
+            // printed inside. A view that ignores the safe area is told its
+            // insets are zero, so it can't ask for them itself.
+            GeometryReader { proxy in
+                caseBody(safeArea: proxy.safeAreaInsets)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .ignoresSafeArea()
             }
-            .padding(.horizontal, Metrics.screenMargin)
-            // The same margin at the bottom as at the sides: concentric
-            // corners only look concentric if the inset is even.
-            .padding(.bottom, Metrics.screenMargin)
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-            // The case runs to the glass at the bottom so its corners nest
-            // inside the display's. Measured from the safe area instead, it
-            // stops 34pt short and the two curves never meet.
-            .ignoresSafeArea(edges: .bottom)
             .background { Backdrop() }
             .navigationBarHidden(true)
             .sheet(item: $addingTo) { AddReedView(slot: $0.index) }
@@ -179,22 +176,39 @@ struct CaseView: View {
         }
     }
 
-    // MARK: Header
+    // MARK: The head plate
 
-    private var header: some View {
-        HStack(alignment: .center, spacing: 10) {
-            LogoMark(size: 30)
-
-            VStack(alignment: .leading, spacing: 3) {
-                Text("Reedar")
-                    .font(.title(24))
+    /// The plate at the head of the case, where a real one carries the maker's
+    /// name stamped into the shell.
+    ///
+    /// This is where the app's title bar went. A title bar spends the best
+    /// 60pt on screen saying which app you have open, which you knew, and which
+    /// the launch screen told you a second earlier. The case needs that height
+    /// more than the name does — so the name went, and the plate took over the
+    /// one job the header was actually doing.
+    ///
+    /// It deliberately does not name the reed to play next. The case says that
+    /// itself, printed on the cane, forty points below; a plate repeating it
+    /// would be the screen saying one thing twice instead of two things once.
+    /// So the plate carries what the case can't show: the week, and the state
+    /// of the rotation as a whole.
+    private var headPlate: some View {
+        HStack(alignment: .center, spacing: 12) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(plateTitle)
+                    .font(.heading(16))
                     .foregroundStyle(Palette.ink)
-                Text(subtitle)
-                    .font(.copy(13))
+                Text(plateDetail)
+                    .font(.copy(12.5))
                     .foregroundStyle(Palette.inkSecondary)
             }
+            .lineLimit(1)
+            .minimumScaleFactor(0.8)
+            // The plate reads as one line of engraving even while it changes,
+            // rather than two labels swapping independently.
+            .animation(.settle, value: plateTitle)
 
-            Spacer()
+            Spacer(minLength: 4)
 
             Button {
                 showingData = true
@@ -203,28 +217,55 @@ struct CaseView: View {
                     .font(.system(size: 16, weight: .semibold))
                     .foregroundStyle(Palette.ink)
                     .frame(width: 42, height: 42)
-                    .background(
-                        RoundedRectangle(cornerRadius: 12, style: .continuous)
-                            .fill(Palette.surfaceRaised)
-                    )
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 12, style: .continuous)
-                            .strokeBorder(Palette.hairline, lineWidth: 1)
-                    )
+                    .background {
+                        // A key set into the plate, and the only thing on this
+                        // screen that stands above the shell. It has to be cut
+                        // from lighter stock than the plate to read that way —
+                        // milled into it, which was the first attempt, just
+                        // reads as a hole punched in the case.
+                        let shape = RoundedRectangle(cornerRadius: Metrics.radiusKey,
+                                                     style: .continuous)
+                        shape
+                            .fill(Palette.keyFace)
+                            .overlay { Light.bevel(shape, highlight: 0.14, shade: 0.3) }
+                            .overlay { shape.strokeBorder(Palette.hairline, lineWidth: 1) }
+                            .clipShape(shape)
+                            .shadow(color: .black.opacity(0.45), radius: 5, y: 2)
+                    }
             }
             .buttonStyle(.sink)
             .accessibilityLabel("Lifespan data")
         }
-        .padding(.top, 4)
+        // Set in level with the slot engraving below it, so the plate and the
+        // bays read off the same left margin rather than two.
+        .padding(.leading, 20)
+        .padding(.trailing, 2)
+        .frame(height: 46)
     }
 
-    private var subtitle: String {
+    /// The headline on the plate: how much playing this week. It's the only
+    /// number in the app that answers "am I actually practising", and until now
+    /// it only appeared on the days nothing was due.
+    private var plateTitle: String {
         if carry?.isLifted == true { return "Drop it in any slot" }
-        if activeReeds.isEmpty { return "Tap a slot to add a reed" }
-        if let next = nextUp { return "\(next.slotTitle) has rested longest" }
+        if activeReeds.isEmpty { return "Your case is empty" }
         return weekMinutes > 0
             ? "\(Format.duration(minutes: weekMinutes)) this week"
             : "Nothing played this week"
+    }
+
+    private var plateDetail: String {
+        if carry?.isLifted == true { return "The others shift to make room" }
+        if activeReeds.isEmpty { return "Tap any slot to add your first reed" }
+        let reeds = activeReeds.count == 1 ? "1 reed" : "\(activeReeds.count) reeds"
+        return "\(reeds) · \(readyCount) ready to play"
+    }
+
+    /// Reeds that have had a day off and aren't past their expected life.
+    private var readyCount: Int {
+        activeReeds.count { reed in
+            reed.status(against: LifespanStats.estimate(for: reed, among: allReeds)) == .ready
+        }
     }
 
     /// The reed that has rested longest, if there's a useful answer.
@@ -232,7 +273,38 @@ struct CaseView: View {
 
     // MARK: The case
 
-    private var caseBody: some View {
+    /// The case: not an object on the screen, the object the screen is.
+    ///
+    /// There is no shell. A wall drawn round the display was a wall with
+    /// nothing on the other side of it — every real case wall is there to be
+    /// seen against something, and here the something is the bezel. However
+    /// carefully it was lit it stayed a stripe of lighter grey hugging the
+    /// phone. So the tray is the ground now: you are looking into the case with
+    /// its walls out of frame, which is how you look into a case you are
+    /// holding anyway.
+    ///
+    /// That leaves two depths instead of three — ground and slot — and the
+    /// mouldings carry the whole illusion. They already did most of it.
+    ///
+    /// The ground runs on under the status bar and the home indicator; only
+    /// what's printed on it is held clear of them.
+    private func caseBody(safeArea: EdgeInsets) -> some View {
+        VStack(spacing: 10) {
+            headPlate
+            slotBed
+        }
+        .padding(.top, max(13, safeArea.top + 4))
+        .padding(.bottom, max(13, safeArea.bottom + 4))
+        // The margins the wall used to supply, kept to the point: every left
+        // edge on this screen still lands on 37 from the glass, and every right
+        // edge on 25, exactly as it did when there was a shell outside them.
+        .padding(.leading, 17)
+        .padding(.trailing, 25)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background { ground }
+    }
+
+    private var slotBed: some View {
         GeometryReader { geo in
             let height = (geo.size.height - slotGap * CGFloat(slotCount - 1)) / CGFloat(slotCount)
             // The slot the carried reed would drop into, if one is in hand.
@@ -243,15 +315,25 @@ struct CaseView: View {
 
             ZStack(alignment: .top) {
                 // The mouldings never move.
+                // The first bare slot is the one that says what to do with a
+                // bare slot. Saying it in all of them would be a column of the
+                // same instruction; saying it in none of them, which is where
+                // this started, left the only way to add a reed unmarked.
+                let inviting = carry == nil
+                    ? (0..<slotCount).first { !occupied.contains($0) }
+                    : nil
+
                 VStack(spacing: slotGap) {
                     ForEach(0..<slotCount, id: \.self) { index in
                         SlotMoulding(index: index,
                                      isEmpty: !occupied.contains(index),
+                                     isInviting: index == inviting,
                                      isTarget: hovered == index) { Color.clear }
                             .frame(height: height)
                             .contentShape(Rectangle())
                             .onTapGesture {
                                 guard carry == nil, slots[index] == nil else { return }
+                                Haptics.slotTapped()
                                 addingTo = SlotTarget(index: index)
                             }
                     }
@@ -264,24 +346,34 @@ struct CaseView: View {
                     let index = displaySlot(of: reed, height: height)
                     let base = slotY(index, height: height)
 
+                    let isNextUp = reed.id == nextUp?.id
+
                     ReedRow(
                         reed: reed,
                         estimate: LifespanStats.estimate(for: reed, among: allReeds),
-                        isNextUp: reed.id == nextUp?.id
+                        isNextUp: isNextUp
                     )
                     .padding(4)
                     .frame(height: height)
-                    .scaleEffect(isCarried ? 1.03 : 1)
+                    // The reed to play next sits proud of its slot, the way one
+                    // does when somebody has half-drawn it for you. It is a
+                    // third of the way to being carried and no further — the
+                    // same gesture as a reed in the hand, held back, so the two
+                    // read as the same object at two heights rather than as two
+                    // different effects.
+                    .scaleEffect(isCarried ? 1.03 : (isNextUp ? 1.02 : 1))
                     .rotationEffect(.degrees(isCarried ? -0.7 : 0))
                     // A reed resting in its slot still touches the floor of it:
                     // a tight contact shadow, which grows and softens the
-                    // moment the reed is lifted into the hand.
+                    // moment the reed comes up off the mouldings.
                     //
                     // Flattened first, or the shadow reaches every view inside
                     // and each letter printed on the cane casts its own.
                     .compositingGroup()
-                    .shadow(color: .black.opacity(isCarried ? 0.6 : 0.55),
-                            radius: isCarried ? 16 : 3, y: isCarried ? 10 : 1.5)
+                    .shadow(color: .black.opacity(isCarried ? 0.6 : 0.58),
+                            radius: isCarried ? 16 : (isNextUp ? 11 : 3),
+                            y: isCarried ? 10 : (isNextUp ? 6 : 1.5))
+                    .animation(.settle, value: isNextUp)
                     .offset(y: base + (isCarried ? (carry?.translation ?? 0) : 0))
                     // Settled reeds glide to their new slot; the carried one
                     // tracks the finger with no animation in the way.
@@ -319,36 +411,24 @@ struct CaseView: View {
         // measures symmetrical and reads left-heavy, because the arch curves
         // away from the wall and the heel does not. The tip end gives back
         // four points, which is roughly what the arch takes.
-        .padding(.vertical, 13)
-        .padding(.leading, 9)
-        .padding(.trailing, 17)
-        .background { tray }
-        .padding(6)
-        .frame(maxHeight: .infinity)
-        .background { caseShell }
     }
 
-    /// The shell: the outside of the case, the only part of it that catches
-    /// the light square on.
-    private var caseShell: some View {
+    /// The floor of the case, edge to edge — the one surface everything else
+    /// on this screen is cut into.
+    ///
+    /// No inner shading and no edge light: both describe a wall, and the walls
+    /// are out of frame. Clipped to the display's own corner radius so the
+    /// corners are struck by the phone rather than by a rectangle that happens
+    /// to be behind it.
+    ///
+    /// The grain matters more here than anywhere. This is the largest single
+    /// surface in the app by a long way, and at that size a flat fill stops
+    /// being a material and becomes a rectangle.
+    private var ground: some View {
         let shape = RoundedRectangle(cornerRadius: Metrics.radiusCase, style: .continuous)
         return shape
-            .fill(Palette.caseFace)
-            .overlay { Light.bevel(shape, highlight: 0.11, shade: 0.4) }
-            .overlay { shape.strokeBorder(Palette.hairline, lineWidth: 1) }
-            .clipShape(shape)
-            .shadow(color: .black.opacity(0.5), radius: 18, y: 8)
-    }
-
-    /// The tray the slots are cut into, sunk into the shell. Three depths —
-    /// shell, tray, slot — is what makes the slots read as machined out of
-    /// something solid rather than drawn on top of it.
-    private var tray: some View {
-        let shape = RoundedRectangle(cornerRadius: Metrics.radiusCase - 6, style: .continuous)
-        return shape
             .fill(Palette.trayFace)
-            .overlay { Light.topShade(shape, radius: 3, width: 4, opacity: 0.6) }
-            .overlay { Light.bottomCatch(shape, width: 1.2, opacity: 0.05) }
+            .grained(0.025)
             .clipShape(shape)
     }
 
@@ -413,6 +493,8 @@ struct SlotTarget: Identifiable {
 struct SlotMoulding<Content: View>: View {
     var index: Int = 0
     var isEmpty: Bool = false
+    /// The one bare slot that spells out what a bare slot is for.
+    var isInviting: Bool = false
     var isTarget: Bool = false
     @ViewBuilder var content: Content
 
@@ -450,18 +532,33 @@ struct SlotMoulding<Content: View>: View {
             .contentShape(Rectangle())
     }
 
-    /// An empty slot isn't nothing — it's a numbered bay. Marked faintly, in
-    /// one flat tone: at this size a cut-in letter is a smudge, not a letter.
+    /// An empty slot isn't nothing — it's a numbered bay. Marked in one flat
+    /// tone: at this size a cut-in letter is a smudge, not a letter.
+    ///
+    /// It used to be marked at 7% white, which on a black moulding is a number
+    /// you can only find if you already know it's there — and the `+` beside it
+    /// was the only clue that tapping a slot does anything. A bay stamped too
+    /// faint to read isn't restraint, it's a mark that failed to print.
     private var engraving: some View {
-        HStack {
+        HStack(spacing: 10) {
             Text(indexLabel(index + 1))
                 .font(.numeric(13, weight: .bold))
                 .tracking(1)
+                .foregroundStyle(Color.white.opacity(0.16))
+
+            if isInviting {
+                Text("Add a reed")
+                    .font(.copy(13))
+                    .foregroundStyle(Color.white.opacity(0.3))
+            }
+
             Spacer()
+
             Image(systemName: "plus")
                 .font(.system(size: 11, weight: .bold))
+                .foregroundStyle(Color.white.opacity(isInviting ? 0.3 : 0.16))
         }
-        .foregroundStyle(Color.white.opacity(0.07))
+        .lineLimit(1)
         .padding(.horizontal, 16)
         .opacity(isTarget ? 0 : 1)
         .animation(.mechanical, value: isTarget)
