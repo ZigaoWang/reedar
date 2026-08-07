@@ -24,6 +24,11 @@ struct CaseView: View {
         var from: Int
         var translation: CGFloat = 0
         var isLifted = false
+        /// Where along the reed the finger landed: 0 at the tip, 1 at the heel.
+        /// Fixed for the life of the carry — it's where you took hold of it.
+        var grip: CGFloat = 0.5
+        /// How fast it's travelling, in points per second.
+        var speed: CGFloat = 0
     }
 
     private var activeReeds: [Reed] { allReeds.filter { !$0.isRetired } }
@@ -361,6 +366,11 @@ struct CaseView: View {
                 // one is a change of offset, so it slides rather than redraws.
                 ForEach(activeReeds) { reed in
                     let isCarried = carry?.id == reed.id && carry?.isLifted == true
+                    // A finger resting on the reed, before it has moved far
+                    // enough to lift it. The carry gesture already knows this —
+                    // it tracks from the instant the touch lands — so a reed
+                    // can answer a finger without a single line of new state.
+                    let isPressed = carry?.id == reed.id && !isCarried
                     let index = displaySlot(of: reed, height: height)
                     let base = slotY(index, height: height)
 
@@ -378,8 +388,25 @@ struct CaseView: View {
                     // than the others — which is the question `ReedRow` already
                     // says a reed should never provoke. It says "Play this
                     // next" on the cane. That's the whole marking it needs.
-                    .scaleEffect(isCarried ? 1.03 : 1)
-                    .rotationEffect(.degrees(isCarried ? -0.7 : 0))
+                    //
+                    // Pressed, it goes the other way: a reed under a fingertip
+                    // seats down into its bay. Not a button shrinking — the
+                    // travel is a third of what a button would take, and what
+                    // sells it is the shadow closing up underneath rather than
+                    // the size changing.
+                    .scaleEffect(isCarried ? 1.03 : (isPressed ? 0.994 : 1))
+                    // Anchored where your finger is, not on the middle of the
+                    // reed: that's the difference between something swinging
+                    // from a grip and something being skewed.
+                    .rotationEffect(.degrees(tilt(carried: isCarried)),
+                                    anchor: UnitPoint(x: carry?.grip ?? 0.5, y: 0.5))
+                    // Sprung, so it swings and settles rather than snapping to
+                    // each new velocity reading.
+                    .animation(.spring(response: 0.32, dampingFraction: 0.7),
+                               value: tilt(carried: isCarried))
+                    // Down in the bay it also loses a little light, because it
+                    // is further into the shadow of the near wall.
+                    .brightness(isPressed ? -0.025 : 0)
                     // A reed resting in its slot still touches the floor of it:
                     // a tight contact shadow, which grows and softens the
                     // moment the reed comes up off the mouldings.
@@ -388,8 +415,11 @@ struct CaseView: View {
                     // and each letter printed on the cane casts its own.
                     .compositingGroup()
                     .shadow(color: .black.opacity(isCarried ? 0.6 : 0.55),
-                            radius: isCarried ? 16 : 3,
-                            y: isCarried ? 10 : 1.5)
+                            radius: isCarried ? 16 : (isPressed ? 1.5 : 3),
+                            y: isCarried ? 10 : (isPressed ? 0.5 : 1.5))
+                    // The seating is quick and damped, like anything with mass
+                    // being pushed the last millimetre into a socket.
+                    .animation(.mechanical, value: isPressed)
                     .offset(y: base + (isCarried ? (carry?.translation ?? 0) : 0))
                     // Settled reeds glide to their new slot; the carried one
                     // tracks the finger with no animation in the way.
@@ -398,7 +428,8 @@ struct CaseView: View {
                     .zIndex(isCarried ? 1 : 0)
                     // Opening the reed lives inside this too — see the comment
                     // on `carryGesture`.
-                    .gesture(carryGesture(for: reed, at: index, height: height))
+                    .gesture(carryGesture(for: reed, at: index,
+                                          height: height, width: geo.size.width))
                 }
             }
             .frame(maxWidth: .infinity, alignment: .top)
@@ -460,7 +491,8 @@ struct CaseView: View {
     /// Both outcomes live in the one gesture rather than in a `.gesture` and a
     /// separate `.onTapGesture`, because a drag that begins at zero distance
     /// claims the touch and the tap would never be told about it.
-    private func carryGesture(for reed: Reed, at index: Int, height: CGFloat) -> some Gesture {
+    private func carryGesture(for reed: Reed, at index: Int,
+                             height: CGFloat, width: CGFloat) -> some Gesture {
         DragGesture(minimumDistance: 0, coordinateSpace: .local)
             .updating($carry) { value, state, transaction in
                 let lifted = state?.isLifted == true || travelled(value) > Self.liftDistance
@@ -472,7 +504,11 @@ struct CaseView: View {
                 state = Carry(id: reed.id,
                               from: index,
                               translation: lifted ? value.translation.height : 0,
-                              isLifted: lifted)
+                              isLifted: lifted,
+                              grip: width > 0
+                                  ? min(max(value.startLocation.x / width, 0), 1)
+                                  : 0.5,
+                              speed: lifted ? value.velocity.height : 0)
             }
             .onEnded { value in
                 guard travelled(value) > Self.liftDistance else {
@@ -495,6 +531,28 @@ struct CaseView: View {
     /// enough that a deliberate drag feels immediate, wide enough that the
     /// wobble in a tap doesn't lift anything.
     private static let liftDistance: CGFloat = 10
+
+    /// How far a carried reed leans, in degrees.
+    ///
+    /// It used to lean a flat −0.7° the whole time it was in the air, which is
+    /// not a reed being carried, it's a reed that has been printed crooked.
+    /// Nothing in the world tilts by a constant.
+    ///
+    /// So it comes off the two things that actually decide it. **Speed**: the
+    /// far end lags when you move, and hangs level when you don't, so letting go
+    /// of the drag mid-air brings it back to flat on its own. And **where you
+    /// took hold of it**: a long thin object gripped at one end swings a lot,
+    /// gripped dead centre doesn't swing at all, which is why the rotation is
+    /// anchored on the grip rather than on the middle of the reed. Take it by
+    /// the heel and flick it and you get the whole 3°; pinch it in the middle
+    /// and it stays flat however fast you move.
+    private func tilt(carried isCarried: Bool) -> Double {
+        guard isCarried, let carry else { return 0 }
+        let lag = min(max(carry.speed * 0.004, -3), 3)
+        // −1 at the tip end, +1 at the heel, 0 in the middle.
+        let arm = (carry.grip - 0.5) * 2
+        return lag * arm
+    }
 
     private func drop(_ reed: Reed, from: Int, translation: CGFloat, height: CGFloat) {
         let target = hoverSlot(Carry(id: reed.id, from: from, translation: translation),
