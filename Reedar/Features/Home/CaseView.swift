@@ -253,10 +253,16 @@ struct CaseView: View {
             .buttonStyle(.sink)
             .accessibilityLabel("Lifespan data")
         }
-        // The lockup starts level with the slot engraving below it, so the
-        // plate and the bays read off the same left margin rather than two.
-        .padding(.leading, 20)
-        .padding(.trailing, 2)
+        // Struck level with the reeds, not with the engraving inside the bays.
+        // Those are two different left margins — 21 from the glass and 37 —
+        // and the reeds' own edge is the one that matters, because eight of
+        // them stack into the strongest vertical line on the screen. Set to
+        // the inner one, the mark floated 16pt adrift of it.
+        //
+        // `ReedRow` is inset 4 inside its bay, so the plate matches that 4 and
+        // the mark's left edge lands exactly on every reed's left edge.
+        .padding(.leading, 4)
+        .padding(.trailing, 4)
         .frame(height: 52)
     }
 
@@ -358,22 +364,21 @@ struct CaseView: View {
                     let index = displaySlot(of: reed, height: height)
                     let base = slotY(index, height: height)
 
-                    let isNextUp = reed.id == nextUp?.id
-
                     ReedRow(
                         reed: reed,
                         estimate: LifespanStats.estimate(for: reed, among: allReeds),
-                        isNextUp: isNextUp
+                        isNextUp: reed.id == nextUp?.id
                     )
                     .padding(4)
                     .frame(height: height)
-                    // The reed to play next sits proud of its slot, the way one
-                    // does when somebody has half-drawn it for you. It is a
-                    // third of the way to being carried and no further — the
-                    // same gesture as a reed in the hand, held back, so the two
-                    // read as the same object at two heights rather than as two
-                    // different effects.
-                    .scaleEffect(isCarried ? 1.03 : (isNextUp ? 1.02 : 1))
+                    // Every reed lies at the same height. The one to play next
+                    // was drawn a shade proud of its bay for a while, as if
+                    // somebody had half-pulled it out for you, and the first
+                    // thing anyone asked about it was why that reed was bigger
+                    // than the others — which is the question `ReedRow` already
+                    // says a reed should never provoke. It says "Play this
+                    // next" on the cane. That's the whole marking it needs.
+                    .scaleEffect(isCarried ? 1.03 : 1)
                     .rotationEffect(.degrees(isCarried ? -0.7 : 0))
                     // A reed resting in its slot still touches the floor of it:
                     // a tight contact shadow, which grows and softens the
@@ -382,10 +387,9 @@ struct CaseView: View {
                     // Flattened first, or the shadow reaches every view inside
                     // and each letter printed on the cane casts its own.
                     .compositingGroup()
-                    .shadow(color: .black.opacity(isCarried ? 0.6 : 0.58),
-                            radius: isCarried ? 16 : (isNextUp ? 11 : 3),
-                            y: isCarried ? 10 : (isNextUp ? 6 : 1.5))
-                    .animation(.settle, value: isNextUp)
+                    .shadow(color: .black.opacity(isCarried ? 0.6 : 0.55),
+                            radius: isCarried ? 16 : 3,
+                            y: isCarried ? 10 : 1.5)
                     .offset(y: base + (isCarried ? (carry?.translation ?? 0) : 0))
                     // Settled reeds glide to their new slot; the carried one
                     // tracks the finger with no animation in the way.
@@ -555,8 +559,16 @@ struct SlotMoulding<Content: View>: View {
                     shape.fill(Palette.recessFace)
                     // The walls: dark where they face away from the light,
                     // bright where the far one turns back toward it.
-                    Light.topShade(shape, radius: 3, width: 3.5, opacity: 0.85)
-                    Light.bottomCatch(shape, width: 1.4, opacity: 0.07)
+                    //
+                    // Struck harder than they were. With the case shell gone
+                    // these bays are the only depth left on the screen, and
+                    // five of eight of them are empty on a typical case — so
+                    // most of what anyone looks at is this, and at the old
+                    // settings it was a black rectangle with a hairline on it.
+                    // The far wall is where the work is: it's the one edge in a
+                    // recess that catches light, and at 7% it caught none.
+                    Light.topShade(shape, radius: 3.5, width: 4.5, opacity: 0.95)
+                    Light.bottomCatch(shape, width: 1.8, opacity: 0.14)
 
                     shape.stroke(isTarget ? Palette.accent.opacity(0.8) : Palette.hairline,
                                  lineWidth: isTarget ? 4 : 2)
