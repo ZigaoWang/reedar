@@ -319,9 +319,14 @@ struct CaseView: View {
                 // bare slot. Saying it in all of them would be a column of the
                 // same instruction; saying it in none of them, which is where
                 // this started, left the only way to add a reed unmarked.
-                let inviting = carry == nil
-                    ? (0..<slotCount).first { !occupied.contains($0) }
-                    : nil
+                //
+                // Tested on `isLifted` rather than on there being a carry at
+                // all: a carry now exists from the moment a finger lands on a
+                // reed, and the invitation blinking out on touch-down — before
+                // anything has actually been picked up — is a flicker.
+                let inviting = carry?.isLifted == true
+                    ? nil
+                    : (0..<slotCount).first { !occupied.contains($0) }
 
                 VStack(spacing: slotGap) {
                     ForEach(0..<slotCount, id: \.self) { index in
@@ -332,7 +337,7 @@ struct CaseView: View {
                             .frame(height: height)
                             .contentShape(Rectangle())
                             .onTapGesture {
-                                guard carry == nil, slots[index] == nil else { return }
+                                guard carry?.isLifted != true, slots[index] == nil else { return }
                                 Haptics.slotTapped()
                                 addingTo = SlotTarget(index: index)
                             }
@@ -380,11 +385,8 @@ struct CaseView: View {
                     .animation(isCarried ? nil : .spring(response: 0.3, dampingFraction: 0.8),
                                value: base)
                     .zIndex(isCarried ? 1 : 0)
-                    .onTapGesture {
-                        guard carry == nil else { return }
-                        Haptics.reedLifted()
-                        path.append(reed)
-                    }
+                    // Opening the reed lives inside this too — see the comment
+                    // on `carryGesture`.
                     .gesture(carryGesture(for: reed, at: index, height: height))
                 }
             }
@@ -434,28 +436,54 @@ struct CaseView: View {
 
     // MARK: Carrying
 
+    /// One gesture for both things you can do to a reed: open it, or move it.
+    ///
+    /// It used to take a 0.2s press before a drag would start, which is a fifth
+    /// of a second in which the reed sits there ignoring your finger. Reeds
+    /// don't need arming — you can just pick one up. So the touch is tracked
+    /// from the instant it lands and the reed comes with you the moment you've
+    /// moved `liftDistance`; under that it never left its slot, and letting go
+    /// opens it. Holding still no longer does anything on its own, but holding
+    /// still and then moving carries exactly as it always did.
+    ///
+    /// Both outcomes live in the one gesture rather than in a `.gesture` and a
+    /// separate `.onTapGesture`, because a drag that begins at zero distance
+    /// claims the touch and the tap would never be told about it.
     private func carryGesture(for reed: Reed, at index: Int, height: CGFloat) -> some Gesture {
-        LongPressGesture(minimumDuration: 0.2)
-            .sequenced(before: DragGesture(minimumDistance: 0, coordinateSpace: .local))
+        DragGesture(minimumDistance: 0, coordinateSpace: .local)
             .updating($carry) { value, state, transaction in
-                switch value {
-                case .first(true):
-                    // Held long enough — the reed is in your hand.
-                    state = Carry(id: reed.id, from: index, isLifted: true)
+                let lifted = state?.isLifted == true || travelled(value) > Self.liftDistance
+                // Only on the frame it comes up, so the catch-up to the finger
+                // is sprung and everything after it tracks with no lag.
+                if lifted, state?.isLifted != true {
                     transaction.animation = .spring(response: 0.25, dampingFraction: 0.65)
-                case .second(true, let drag):
-                    state = Carry(id: reed.id, from: index,
-                                  translation: drag?.translation.height ?? 0,
-                                  isLifted: true)
-                default:
-                    state = nil
                 }
+                state = Carry(id: reed.id,
+                              from: index,
+                              translation: lifted ? value.translation.height : 0,
+                              isLifted: lifted)
             }
             .onEnded { value in
-                guard case .second(true, let drag) = value else { return }
-                drop(reed, from: index, translation: drag?.translation.height ?? 0, height: height)
+                guard travelled(value) > Self.liftDistance else {
+                    // It never came out of its slot. That was a tap.
+                    Haptics.reedLifted()
+                    path.append(reed)
+                    return
+                }
+                drop(reed, from: index, translation: value.translation.height, height: height)
             }
     }
+
+    /// How far the finger has gone since it landed. Measured on both axes: a
+    /// reed dragged at a slight angle is still a reed being dragged.
+    private func travelled(_ value: DragGesture.Value) -> CGFloat {
+        hypot(value.translation.width, value.translation.height)
+    }
+
+    /// The distance that separates opening a reed from carrying it. Small
+    /// enough that a deliberate drag feels immediate, wide enough that the
+    /// wobble in a tap doesn't lift anything.
+    private static let liftDistance: CGFloat = 10
 
     private func drop(_ reed: Reed, from: Int, translation: CGFloat, height: CGFloat) {
         let target = hoverSlot(Carry(id: reed.id, from: from, translation: translation),
