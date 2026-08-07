@@ -38,6 +38,32 @@ struct ReedShape: Shape {
     /// last bay's sharp corner from running into the shell's own rounding.
     var heelRadius: CGFloat = 0
 
+    /// How deep the thumb relief is cut, in points, or 0 for none.
+    ///
+    /// A reed lying flush in a moulded bay can't be picked up — there's nothing
+    /// to get a nail under — so a case that holds them this way scallops the
+    /// near wall away at one end. It's the detail that explains what the bay is
+    /// for, and the reason a bay reads as tooling rather than as a rounded
+    /// rectangle. Only the bay has one; a reed doesn't have a bite out of it.
+    ///
+    /// Depth is the number that matters, because the wall it eats into is only
+    /// as thick as the gap between two bays. Cut deeper than that and the
+    /// scallop breaks through into the bay below, which is what the first
+    /// attempt did — it read as a spike between them rather than as a scoop.
+    var thumbRelief: CGFloat = 0
+
+    /// A relief is far wider than it is deep — a scoop for a thumb, not a
+    /// notch. Held at a fixed ratio so the one number above sets both.
+    private static let reliefSpread: CGFloat = 5
+
+    /// Where along the bay the relief sits, 0 at the heel and 1 at the tip.
+    /// Near the heel: that's the sturdy end, and the end you'd actually lift
+    /// from rather than the shaved tip you'd break.
+    ///
+    /// Static, not a stored property — a private stored property drags the
+    /// synthesised memberwise initialiser down to private with it.
+    private static let reliefAt: Double = 0.24
+
     func path(in rect: CGRect) -> Path {
         let p = pointMapper(axis: axis, rect: rect)
         let along = axis.isHorizontal ? rect.width : rect.height
@@ -60,12 +86,28 @@ struct ReedShape: Shape {
         let du = along > 0 ? min(heelRadius / along, 0.2) : 0
         let dv = across > 0 ? min(heelRadius / across, 0.45) : 0
 
+        // The relief, in each axis's own units so the scoop keeps its
+        // proportions on a bay drawn long and thin.
+        let ru = along > 0 ? min(thumbRelief * Self.reliefSpread / along, 0.2) : 0
+        let rv = across > 0 ? min(thumbRelief / across, 0.2) : 0
+
         var path = Path()
         path.move(to: p(du, 0))
         path.addLine(to: p(start, 0))               // straight parallel side
         path.addCurve(to: p(start, 1),
                       control1: p(control, 0.06),
                       control2: p(control, 0.94))
+        if ru > 0 {
+            // Running back along the near wall toward the heel, the wall gives
+            // way for a moment. A cubic with both handles standing straight off
+            // the ends at 4/3 of the depth is the usual approximation of a
+            // half-round; a single quadratic through the middle, which is what
+            // this was, draws a parabola and comes to a point.
+            path.addLine(to: p(Self.reliefAt + ru, 1))
+            path.addCurve(to: p(Self.reliefAt - ru, 1),
+                          control1: p(Self.reliefAt + ru, 1 + rv * 4 / 3),
+                          control2: p(Self.reliefAt - ru, 1 + rv * 4 / 3))
+        }
         path.addLine(to: p(du, 1))
         if du > 0 {
             path.addQuadCurve(to: p(0, 1 - dv), control: p(0, 1))

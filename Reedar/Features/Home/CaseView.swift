@@ -339,24 +339,10 @@ struct CaseView: View {
 
             ZStack(alignment: .top) {
                 // The mouldings never move.
-                // The first bare slot is the one that says what to do with a
-                // bare slot. Saying it in all of them would be a column of the
-                // same instruction; saying it in none of them, which is where
-                // this started, left the only way to add a reed unmarked.
-                //
-                // Tested on `isLifted` rather than on there being a carry at
-                // all: a carry now exists from the moment a finger lands on a
-                // reed, and the invitation blinking out on touch-down — before
-                // anything has actually been picked up — is a flicker.
-                let inviting = carry?.isLifted == true
-                    ? nil
-                    : (0..<slotCount).first { !occupied.contains($0) }
-
                 VStack(spacing: slotGap) {
                     ForEach(0..<slotCount, id: \.self) { index in
                         SlotMoulding(index: index,
                                      isEmpty: !occupied.contains(index),
-                                     isInviting: index == inviting,
                                      isTarget: hovered == index) { Color.clear }
                             .frame(height: height)
                             .contentShape(Rectangle())
@@ -609,8 +595,6 @@ struct SlotTarget: Identifiable {
 struct SlotMoulding<Content: View>: View {
     var index: Int = 0
     var isEmpty: Bool = false
-    /// The one bare slot that spells out what a bare slot is for.
-    var isInviting: Bool = false
     var isTarget: Bool = false
     @ViewBuilder var content: Content
 
@@ -620,7 +604,9 @@ struct SlotMoulding<Content: View>: View {
         // leaves a crescent of dead space that reads as a mistake. The heel
         // corners get a radius the reed itself does not have, so the end bays
         // stop cutting across the shell's own rounding.
-        let shape = ReedShape(axis: .horizontalReversed, heelRadius: 9)
+        // The relief is cut 5pt deep because the wall it eats into is the 8pt
+        // gap between two bays, and a scoop that breaks through is a hole.
+        let shape = ReedShape(axis: .horizontalReversed, heelRadius: 9, thumbRelief: 5)
         // Color.clear guarantees the moulding has a size even when the slot is
         // empty — an empty conditional on its own lays out at zero height.
         return ZStack {
@@ -656,36 +642,33 @@ struct SlotMoulding<Content: View>: View {
             .contentShape(Rectangle())
     }
 
-    /// An empty slot isn't nothing — it's a numbered bay. Marked in one flat
-    /// tone: at this size a cut-in letter is a smudge, not a letter.
+    /// An empty bay isn't nothing — it's a numbered bay, and the number is the
+    /// only thing on it.
     ///
-    /// It used to be marked at 7% white, which on a black moulding is a number
-    /// you can only find if you already know it's there — and the `+` beside it
-    /// was the only clue that tapping a slot does anything. A bay stamped too
-    /// faint to read isn't restraint, it's a mark that failed to print.
+    /// There used to be a `+` at the other end and, in the first free bay, the
+    /// words "Add a reed". Both were interface printed onto moulded plastic. No
+    /// reed case has a plus sign in the bottom of a bay, and the moment you put
+    /// one there the bay stops being a bay and becomes a button that happens to
+    /// be reed-shaped. The number stays because cases really are numbered.
+    ///
+    /// What's lost is the only on-screen hint that tapping a bay does anything.
+    /// The plate covers it on an empty case — "Tap any slot to add your first
+    /// reed" — which is the one time somebody needs telling.
+    ///
+    /// Cut in rather than printed on: a dark line above the figure and the pale
+    /// face below it, which is what a stamp in dark plastic does under a light
+    /// from above. It only works because the figure is bold — at hairline
+    /// weights this really does come out a smudge.
     private var engraving: some View {
-        HStack(spacing: 10) {
-            Text(indexLabel(index + 1))
-                .font(.numeric(13, weight: .bold))
-                .tracking(1)
-                .foregroundStyle(Color.white.opacity(0.16))
-
-            if isInviting {
-                Text("Add a reed")
-                    .font(.copy(13))
-                    .foregroundStyle(Color.white.opacity(0.3))
-            }
-
-            Spacer()
-
-            Image(systemName: "plus")
-                .font(.system(size: 11, weight: .bold))
-                .foregroundStyle(Color.white.opacity(isInviting ? 0.3 : 0.16))
-        }
-        .lineLimit(1)
-        .padding(.horizontal, 16)
-        .opacity(isTarget ? 0 : 1)
-        .animation(.mechanical, value: isTarget)
+        Text(indexLabel(index + 1))
+            .font(.numeric(13, weight: .bold))
+            .tracking(1)
+            .foregroundStyle(Color.white.opacity(0.17))
+            .shadow(color: .black.opacity(0.9), radius: 0.5, y: -0.7)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.leading, 16)
+            .opacity(isTarget ? 0 : 1)
+            .animation(.mechanical, value: isTarget)
     }
 }
 
