@@ -54,11 +54,17 @@ struct CaseView: View {
     }
 
     /// Which slot the carried reed is currently over.
+    ///
+    /// A reed changes bay once it has travelled most of the way into the next
+    /// one, not half of it. Half puts the switching point exactly where a
+    /// finger comes to rest between two bays, and the reeds behind it then
+    /// flip between two layouts on every pixel of hand tremor.
     private func hoverSlot(_ carry: Carry, height: CGFloat) -> Int {
         let step = height + slotGap
         guard step > 0 else { return carry.from }
-        let moved = Int((carry.translation / step).rounded())
-        return min(max(carry.from + moved, 0), slotCount - 1)
+        let exact = carry.translation / step
+        let moved = exact > 0 ? (exact + 0.38).rounded(.down) : (exact - 0.38).rounded(.up)
+        return min(max(carry.from + Int(moved), 0), slotCount - 1)
     }
 
     /// The case as it would look with one reed moved from one slot to another.
@@ -401,8 +407,10 @@ struct CaseView: View {
                     .rotationEffect(.degrees(tilt(carried: isCarried)),
                                     anchor: UnitPoint(x: carry?.grip ?? 0.5, y: 0.5))
                     // Sprung, so it swings and settles rather than snapping to
-                    // each new velocity reading.
-                    .animation(.spring(response: 0.32, dampingFraction: 0.7),
+                    // each new velocity reading. Damped to the house rule —
+                    // see `Animation.mechanical`, which says in as many words
+                    // that nothing in this app bounces.
+                    .animation(.spring(response: 0.3, dampingFraction: 0.86),
                                value: tilt(carried: isCarried))
                     // Down in the bay it also loses a little light, because it
                     // is further into the shadow of the near wall.
@@ -423,8 +431,19 @@ struct CaseView: View {
                     .offset(y: base + (isCarried ? (carry?.translation ?? 0) : 0))
                     // Settled reeds glide to their new slot; the carried one
                     // tracks the finger with no animation in the way.
-                    .animation(isCarried ? nil : .spring(response: 0.3, dampingFraction: 0.8),
+                    //
+                    // Damped almost flat. These are the reeds shuffling aside
+                    // to make room, and at 0.8 they overshot their new bay and
+                    // came back — which is fine once, and reads as a shiver
+                    // when a hand hovering near a boundary sends them off
+                    // again before the last one has settled.
+                    .animation(isCarried ? nil : .spring(response: 0.3, dampingFraction: 0.95),
                                value: base)
+                    // Coming out of the carry, the reed settles into its bay
+                    // rather than snapping there. Dropping it back where it
+                    // started used to cut straight from wherever your finger
+                    // was to the bay, in one frame.
+                    .animation(.settle, value: isCarried)
                     .zIndex(isCarried ? 1 : 0)
                     // Opening the reed lives inside this too — see the comment
                     // on `carryGesture`.
@@ -499,7 +518,7 @@ struct CaseView: View {
                 // Only on the frame it comes up, so the catch-up to the finger
                 // is sprung and everything after it tracks with no lag.
                 if lifted, state?.isLifted != true {
-                    transaction.animation = .spring(response: 0.25, dampingFraction: 0.65)
+                    transaction.animation = .spring(response: 0.25, dampingFraction: 0.85)
                 }
                 state = Carry(id: reed.id,
                               from: index,
@@ -560,7 +579,7 @@ struct CaseView: View {
         guard target != from else { return }
 
         let moved = arrangement(moving: reed, from: from, to: target)
-        withAnimation(.spring(response: 0.32, dampingFraction: 0.78)) {
+        withAnimation(.spring(response: 0.32, dampingFraction: 0.95)) {
             for (index, occupant) in moved.enumerated() where occupant?.slotIndex != index {
                 occupant?.slotIndex = index
             }
