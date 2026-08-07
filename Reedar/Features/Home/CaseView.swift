@@ -187,16 +187,33 @@ struct CaseView: View {
     /// more than the name does — so the name went, and the plate took over the
     /// one job the header was actually doing.
     ///
+    /// It carries the name. That was cut once, on the grounds that a title bar
+    /// spends the best 60pt on screen telling you which app you have open —
+    /// which is true of the app and false of everything around it. This is the
+    /// screen people screenshot and share, and a screenshot with no name on it
+    /// is a screenshot of nothing in particular. The name earns its 20pt there,
+    /// not here.
+    ///
     /// It deliberately does not name the reed to play next. The case says that
     /// itself, printed on the cane, forty points below; a plate repeating it
     /// would be the screen saying one thing twice instead of two things once.
-    /// So the plate carries what the case can't show: the week, and the state
-    /// of the rotation as a whole.
+    ///
+    /// Left-aligned rather than centred: every other thing on this screen —
+    /// bay numbers, reed names, statuses — reads off the left margin, and one
+    /// centred element among them is an exception with nothing behind it. A
+    /// centred name would also sit visibly off-centre next to the key, unless
+    /// it were balanced by a spacer that exists only to be empty.
     private var headPlate: some View {
-        HStack(alignment: .center, spacing: 12) {
-            VStack(alignment: .leading, spacing: 2) {
-                Text(plateTitle)
-                    .font(.heading(16))
+        HStack(alignment: .center, spacing: 11) {
+            LogoMark(size: 26)
+
+            VStack(alignment: .leading, spacing: 1) {
+                // Same tracking as the launch veil sets it in. The mark and the
+                // name are one lockup, and it should be the same lockup on the
+                // way in as on the screen it hands over to.
+                Text("Reedar")
+                    .font(.title(17))
+                    .tracking(0.4)
                     .foregroundStyle(Palette.ink)
                 Text(plateDetail)
                     .font(.copy(12.5))
@@ -204,9 +221,9 @@ struct CaseView: View {
             }
             .lineLimit(1)
             .minimumScaleFactor(0.8)
-            // The plate reads as one line of engraving even while it changes,
-            // rather than two labels swapping independently.
-            .animation(.settle, value: plateTitle)
+            // The line changes as one piece of engraving rather than as a label
+            // being swapped out.
+            .animation(.settle, value: plateDetail)
 
             Spacer(minLength: 4)
 
@@ -219,8 +236,8 @@ struct CaseView: View {
                     .frame(width: 42, height: 42)
                     .background {
                         // A key set into the plate, and the only thing on this
-                        // screen that stands above the shell. It has to be cut
-                        // from lighter stock than the plate to read that way —
+                        // screen that stands above the floor. It has to be cut
+                        // from lighter stock than the floor to read that way —
                         // milled into it, which was the first attempt, just
                         // reads as a hole punched in the case.
                         let shape = RoundedRectangle(cornerRadius: Metrics.radiusKey,
@@ -236,36 +253,26 @@ struct CaseView: View {
             .buttonStyle(.sink)
             .accessibilityLabel("Lifespan data")
         }
-        // Set in level with the slot engraving below it, so the plate and the
-        // bays read off the same left margin rather than two.
+        // The lockup starts level with the slot engraving below it, so the
+        // plate and the bays read off the same left margin rather than two.
         .padding(.leading, 20)
         .padding(.trailing, 2)
-        .frame(height: 46)
+        .frame(height: 52)
     }
 
-    /// The headline on the plate: how much playing this week. It's the only
-    /// number in the app that answers "am I actually practising", and until now
-    /// it only appeared on the days nothing was due.
-    private var plateTitle: String {
+    /// The one line under the name. It carries the week, because that is the
+    /// only thing on this screen the case itself can't show you: which reed to
+    /// play is printed on the cane, and how each one is doing is printed beside
+    /// it. How much you have actually played is nowhere else outside Lifespan.
+    ///
+    /// It used to say "3 reeds · 3 ready to play" as well, which is the screen
+    /// counting something you can see eight bays of.
+    private var plateDetail: String {
         if carry?.isLifted == true { return "Drop it in any slot" }
-        if activeReeds.isEmpty { return "Your case is empty" }
+        if activeReeds.isEmpty { return "Tap any slot to add your first reed" }
         return weekMinutes > 0
             ? "\(Format.duration(minutes: weekMinutes)) this week"
             : "Nothing played this week"
-    }
-
-    private var plateDetail: String {
-        if carry?.isLifted == true { return "The others shift to make room" }
-        if activeReeds.isEmpty { return "Tap any slot to add your first reed" }
-        let reeds = activeReeds.count == 1 ? "1 reed" : "\(activeReeds.count) reeds"
-        return "\(reeds) · \(readyCount) ready to play"
-    }
-
-    /// Reeds that have had a day off and aren't past their expected life.
-    private var readyCount: Int {
-        activeReeds.count { reed in
-            reed.status(against: LifespanStats.estimate(for: reed, among: allReeds)) == .ready
-        }
     }
 
     /// The reed that has rested longest, if there's a useful answer.
