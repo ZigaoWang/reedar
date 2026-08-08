@@ -52,6 +52,9 @@ struct CaseView: View {
     /// the two ends of the plate can't drift apart again.
     private static let plateKeySize: CGFloat = 42
 
+    /// The name on the plate. Named because its optical drop is struck from it.
+    private static let wordmarkSize: CGFloat = 21
+
     /// One margin, both sides, for everything in the case.
     ///
     /// The bays used to be inset 17 on the left and 25 on the right — an
@@ -319,7 +322,21 @@ struct CaseView: View {
                         LogoMark(size: 32)
                         // One lockup, drawn from one place — it should be the
                         // same on the way in as on the screen it hands over to.
-                        Wordmark(size: 21)
+                        Wordmark(size: Self.wordmarkSize)
+                            // Dropped onto the mark's optical centre rather than
+                            // its measured one. A line of type is centred by its
+                            // box, and a box reserves room under the baseline
+                            // for descenders — which "Reedar" hasn't got a
+                            // single one of. So the letters sit in the top of
+                            // their own box and the word rides high against a
+                            // square mark that fills all of its.
+                            //
+                            // The correction is the gap between the two
+                            // centres, which for this face is close enough to a
+                            // fourteenth of the type size to take that as the
+                            // rule, and stays right if the wordmark is ever set
+                            // larger.
+                            .offset(y: Self.wordmarkSize * 0.07)
                     }
                     // Nothing drawn behind it. A nameplate was tried here — a
                     // flat fill and a hairline, no bevel, no shadow — and it
