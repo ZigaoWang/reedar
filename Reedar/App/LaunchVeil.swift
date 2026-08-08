@@ -55,10 +55,7 @@ struct LaunchVeil: View {
 
             VStack(spacing: 15) {
                 LogoMark(size: 88)
-                Text("Reedar")
-                    .font(.title(18))
-                    .foregroundStyle(Palette.ink)
-                    .tracking(0.4)
+                Wordmark(size: 20)
             }
             // Set above true centre. Optically centred beats measured centre
             // here: the name hangs below the mark, so a mathematically centred

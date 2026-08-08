@@ -376,8 +376,9 @@ struct ReedView: View {
                 Text(strengthStamp)
             }
         }
-        .font(.system(size: max(6, across * (axis.isHorizontal ? 0.16 : 0.14)),
-                      weight: .semibold))
+        // The maker's serif, like every other brand in the app — and like the
+        // printing on a real reed, which is where the rule comes from.
+        .font(.brand(max(6, across * (axis.isHorizontal ? 0.16 : 0.14)), weight: .semibold))
         .foregroundStyle(Color(hex: 0x6B4A20).opacity(0.55))
         .lineLimit(1)
         .minimumScaleFactor(0.5)

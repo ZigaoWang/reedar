@@ -53,6 +53,22 @@ extension Font {
         .system(size: size, weight: weight)
     }
 
+    /// Names that belong to makers.
+    ///
+    /// The one serif in the app, and it has exactly one job: the words that are
+    /// printed on cane. Vandoren, D'Addario, Rigotti stamp their reeds in a
+    /// serif, so the app sets a brand in a serif wherever it shows one — on the
+    /// bark, on a reed's page, and on the case's own plate, because the case
+    /// has a maker too.
+    ///
+    /// Nothing else takes it. A serif used for interface text is decoration,
+    /// and one used for a single wordmark is an accident; used for every
+    /// maker's name and only those, it's the app telling you which words came
+    /// off the object rather than out of the app.
+    static func brand(_ size: CGFloat, weight: Font.Weight = .bold) -> Font {
+        .system(size: size, weight: weight, design: .serif)
+    }
+
     /// Numbers: rounded and monospaced so they don't jitter as they count.
     static func numeric(_ size: CGFloat, weight: Font.Weight = .semibold) -> Font {
         .system(size: size, weight: weight, design: .rounded).monospacedDigit()

@@ -26,6 +26,9 @@ struct CaseView: View {
     private enum Destination: Hashable {
         case lifespan
         case archive
+        /// What this is, who made it, where to say something about it — and
+        /// where any settings will go, when there are any.
+        case about
     }
 
     /// Everything about carrying a reed lives in gesture state, which SwiftUI
@@ -39,6 +42,20 @@ struct CaseView: View {
     /// The mark and the stats key are struck to one size, from one number, so
     /// the two ends of the plate can't drift apart again.
     private static let plateKeySize: CGFloat = 42
+
+    /// The case is inset further on the right than the left. A bay is a reed's
+    /// outline, and the arched tip needs less clearance from the wall than the
+    /// square heel does.
+    private static let bayInsetLeading: CGFloat = 17
+    private static let bayInsetTrailing: CGFloat = 25
+
+    /// Which means anything centred inside the case is centred on the bays, and
+    /// lands half that difference to the left of the phone's own centre. The
+    /// mark is nudged back onto true centre: it's the app's name, so it answers
+    /// to the screen rather than to the bays under it.
+    private static var plateCentring: CGFloat {
+        (bayInsetTrailing - bayInsetLeading) / 2
+    }
 
     private struct Carry: Equatable {
         var id: UUID
@@ -186,6 +203,7 @@ struct CaseView: View {
                 switch destination {
                 case .lifespan: StatsView()
                 case .archive: ArchiveView()
+                case .about: AboutView()
                 }
             }
             .task {
@@ -239,18 +257,33 @@ struct CaseView: View {
     private var headPlate: some View {
         ZStack {
             VStack(spacing: 3) {
-                HStack(spacing: 10) {
-                    // Sized to the wordmark, not to the keys. In a centred
-                    // lockup the mark answers to the type it sits beside.
-                    LogoMark(size: 34)
-                    // Same tracking as the launch veil sets it in. The mark and
-                    // the name are one lockup, and it should be the same lockup
-                    // on the way in as on the screen it hands over to.
-                    Text("Reedar")
-                        .font(.title(22))
-                        .tracking(0.5)
-                        .foregroundStyle(Palette.ink)
+                Button {
+                    path.append(Destination.about)
+                } label: {
+                    HStack(spacing: 9) {
+                        // Struck to the wordmark's own line, so the mark and
+                        // the name read as one size rather than as a big badge
+                        // with a caption next to it.
+                        LogoMark(size: 26)
+                        // One lockup, drawn from one place — it should be the
+                        // same on the way in as on the screen it hands over to.
+                        Wordmark(size: 21)
+                    }
+                    // Nothing drawn behind it. A nameplate was tried here — a
+                    // flat fill and a hairline, no bevel, no shadow — and it
+                    // still came out as a third outlined shape in a row of
+                    // three, which is the plate reading as a toolbar.
+                    //
+                    // The mark is pressable and doesn't say so. It doesn't
+                    // need to: it's the app's own name, the one thing on the
+                    // screen a finger goes to out of curiosity rather than
+                    // instruction, and it answers under the thumb.
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 6)
+                    .contentShape(Rectangle())
                 }
+                .buttonStyle(.sink)
+                .accessibilityLabel("About Reedar")
 
                 if let plateHint {
                     Text(plateHint)
@@ -263,6 +296,12 @@ struct CaseView: View {
             // Clear of the keys at both ends, so a long line shortens rather
             // than running under them.
             .padding(.horizontal, Self.plateKeySize + 12)
+            // Back onto the phone's centre line — see `plateCentring` — and a
+            // shade high of the keys' own centre. "Reedar" has no descenders,
+            // so its visual mass sits above the line the two keys are centred
+            // on, and setting all three on the same axis leaves the name
+            // looking like it has sunk.
+            .offset(x: Self.plateCentring, y: -3)
 
             HStack {
                 plateKey("archivebox", label: "Retired reeds") { path.append(Destination.archive) }
@@ -357,8 +396,8 @@ struct CaseView: View {
         // The margins the wall used to supply, kept to the point: every left
         // edge on this screen still lands on 37 from the glass, and every right
         // edge on 25, exactly as it did when there was a shell outside them.
-        .padding(.leading, 17)
-        .padding(.trailing, 25)
+        .padding(.leading, Self.bayInsetLeading)
+        .padding(.trailing, Self.bayInsetTrailing)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background { ground }
     }
@@ -760,7 +799,7 @@ struct ReedRow: View {
 
                     VStack(alignment: .trailing, spacing: 1) {
                         Text(reed.brandName)
-                            .font(.system(size: 12, weight: .bold, design: .serif))
+                            .font(.brand(12))
                             .lineLimit(1)
                             .minimumScaleFactor(0.7)
                         Text(reed.strengthLabel)

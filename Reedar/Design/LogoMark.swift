@@ -29,11 +29,39 @@ struct LogoMark: View {
     }
 }
 
+/// The app's name, set the way a reed maker's is.
+///
+/// The bark on every reed in this app carries its brand in a bold serif —
+/// Vandoren, D'Addario, Rigotti — because that is how cane is stamped.
+/// Setting Reedar the same way puts it in the same company: the case has a
+/// maker too, and its name belongs on it in the same hand.
+///
+/// It was the interface font at semibold, which is not a wordmark, it's a
+/// title label. Nothing was wrong with it except that it looked like every
+/// other piece of type on the screen, which for the one word that isn't
+/// interface is the whole problem.
+///
+/// Drawn from one place so the launch screen, the case and the about page
+/// can't drift apart — same reason `LogoMark` exists.
+struct Wordmark: View {
+    var size: CGFloat = 24
+
+    var body: some View {
+        Text("Reedar")
+            .font(.brand(size))
+            // A whisper of tracking. A serif set tight at display sizes closes
+            // up around the double e.
+            .tracking(size * 0.012)
+            .foregroundStyle(Palette.ink)
+    }
+}
+
 #Preview {
     VStack(spacing: 20) {
         LogoMark(size: 28)
         LogoMark(size: 44)
         LogoMark(size: 96)
+        Wordmark(size: 24)
     }
     .padding(40)
     .background(Palette.ground)

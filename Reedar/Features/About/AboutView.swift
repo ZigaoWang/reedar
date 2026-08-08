@@ -44,9 +44,7 @@ struct AboutView: View {
                 .shadow(color: .black.opacity(0.5), radius: 14, y: 7)
 
             VStack(spacing: 5) {
-                Text("Reedar")
-                    .font(.title(23))
-                    .foregroundStyle(Palette.ink)
+                Wordmark(size: 26)
 
                 Text(Self.versionLabel)
                     .font(.numeric(12, weight: .medium))

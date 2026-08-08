@@ -136,8 +136,11 @@ struct ReedDetailView: View {
                             .font(.system(size: 14, weight: .semibold))
                             .foregroundStyle(Palette.accent)
                     }
+                    // A brand and a model, which is a maker's name, so it takes
+                    // the maker's serif — the same one stamped on the cane two
+                    // inches above it.
                     Text(reed.modelDisplayName)
-                        .font(.title(22))
+                        .font(.brand(22))
                         .foregroundStyle(Palette.ink)
                         .lineLimit(2)
                         .minimumScaleFactor(0.8)
