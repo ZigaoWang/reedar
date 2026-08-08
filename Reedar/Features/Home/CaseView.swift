@@ -43,19 +43,23 @@ struct CaseView: View {
     /// the two ends of the plate can't drift apart again.
     private static let plateKeySize: CGFloat = 42
 
-    /// The case is inset further on the right than the left. A bay is a reed's
-    /// outline, and the arched tip needs less clearance from the wall than the
-    /// square heel does.
-    private static let bayInsetLeading: CGFloat = 17
-    private static let bayInsetTrailing: CGFloat = 25
-
-    /// Which means anything centred inside the case is centred on the bays, and
-    /// lands half that difference to the left of the phone's own centre. The
-    /// mark is nudged back onto true centre: it's the app's name, so it answers
-    /// to the screen rather than to the bays under it.
-    private static var plateCentring: CGFloat {
-        (bayInsetTrailing - bayInsetLeading) / 2
-    }
+    /// One margin, both sides, for everything in the case.
+    ///
+    /// The bays used to be inset 17 on the left and 25 on the right — an
+    /// optical correction, and a real one: a bay is a reed's outline, so its
+    /// arched tip curves away from the wall where the square heel doesn't, and
+    /// even margins leave the tip end looking loose.
+    ///
+    /// It cost more than it bought. Everything in the case inherits that inset,
+    /// so nothing could share a centre or an edge with anything else: the mark
+    /// couldn't be centred on the phone and between the keys at once, and a key
+    /// couldn't line up with the reeds under it and its opposite number at the
+    /// same time. Three separate things looked wrong and they were all this.
+    ///
+    /// Square, everything agrees — keys, reeds, mark, screen, one grid. The
+    /// tip end gives back a few points of apparent slack, which is a smaller
+    /// price than every alignment on the screen being off by four.
+    private static let caseInset: CGFloat = 21
 
     private struct Carry: Equatable {
         var id: UUID
@@ -264,7 +268,12 @@ struct CaseView: View {
                         // Struck to the wordmark's own line, so the mark and
                         // the name read as one size rather than as a big badge
                         // with a caption next to it.
-                        LogoMark(size: 26)
+                        // The mark carries slightly more than its share. Set to
+                        // the wordmark's exact line height it reads smaller
+                        // than the word beside it — a solid shape and a run of
+                        // letters at the same measure never look the same size,
+                        // because the letters only fill part of theirs.
+                        LogoMark(size: 32)
                         // One lockup, drawn from one place — it should be the
                         // same on the way in as on the screen it hands over to.
                         Wordmark(size: 21)
@@ -301,7 +310,7 @@ struct CaseView: View {
             // so its visual mass sits above the line the two keys are centred
             // on, and setting all three on the same axis leaves the name
             // looking like it has sunk.
-            .offset(x: Self.plateCentring, y: -3)
+            .offset(y: -1.5)
 
             HStack {
                 plateKey("archivebox", label: "Retired reeds") { path.append(Destination.archive) }
@@ -309,16 +318,15 @@ struct CaseView: View {
                 plateKey("chart.bar", label: "Lifespan data") { path.append(Destination.lifespan) }
             }
         }
-        // Struck level with the reeds, not with the engraving inside the bays.
-        // Those are two different left margins — 21 from the glass and 37 —
-        // and the reeds' own edge is the one that matters, because eight of
-        // them stack into the strongest vertical line on the screen. Set to
-        // the inner one, the mark floated 16pt adrift of it.
+        // `ReedRow` is inset 4 inside its bay, so the plate matches it and the
+        // keys land on the reeds' own edges rather than 4pt inside them.
         //
-        // `ReedRow` is inset 4 inside its bay, so the plate matches that 4 and
-        // the mark's left edge lands exactly on every reed's left edge.
-        .padding(.leading, 4)
-        .padding(.trailing, 4)
+        // The outer margin is `caseInset`, and it's even on both sides — which
+        // is the whole reason the mark can simply be centred here. While the
+        // case was lopsided there were two centres 4pt apart, the screen's and
+        // the midpoint between the keys; centre the mark on either and it
+        // reads off against the other, which is why nudging it never fixed it.
+        .padding(.horizontal, 4)
         .frame(height: 52)
     }
 
@@ -391,13 +399,9 @@ struct CaseView: View {
             headPlate
             slotBed
         }
+        .padding(.horizontal, Self.caseInset)
         .padding(.top, max(13, safeArea.top + 4))
         .padding(.bottom, max(13, safeArea.bottom + 4))
-        // The margins the wall used to supply, kept to the point: every left
-        // edge on this screen still lands on 37 from the glass, and every right
-        // edge on 25, exactly as it did when there was a shell outside them.
-        .padding(.leading, Self.bayInsetLeading)
-        .padding(.trailing, Self.bayInsetTrailing)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background { ground }
     }
