@@ -5,7 +5,6 @@ import SwiftUI
 struct StatsView: View {
     @Query private var reeds: [Reed]
     @State private var grouping: Grouping = .model
-    @State private var showingAbout = false
     @State private var showingWorking = false
 
     enum Grouping: String, CaseIterable, Identifiable {
@@ -90,7 +89,6 @@ struct StatsView: View {
         if counted.isEmpty {
             VStack(spacing: Metrics.stack) {
                 pending
-                colophon
             }
         } else if isWide {
             HStack(alignment: .top, spacing: Metrics.gutter) {
@@ -103,7 +101,6 @@ struct StatsView: View {
                     grouper
                     chart
                     confidenceNote
-                    colophon
                 }
             }
         } else {
@@ -114,7 +111,6 @@ struct StatsView: View {
                 grouper
                 chart
                 confidenceNote
-                colophon
             }
         }
     }
@@ -152,41 +148,7 @@ struct StatsView: View {
         .navigationTitle("Lifespan")
         .navigationBarTitleDisplayMode(.inline)
         .toolbarBackground(.hidden, for: .navigationBar)
-        .navigationDestination(isPresented: $showingAbout) { AboutView() }
         .sheet(isPresented: $showingWorking) { working }
-        .task {
-            if ProcessInfo.processInfo.arguments.contains("-openAbout") {
-                showingAbout = true
-            }
-        }
-    }
-
-    /// The way into About. An earlier pass styled this as a centred signature,
-    /// which nobody read as a control — it has to look like the row above it
-    /// to be found at all.
-    private var colophon: some View {
-        NavigationLink {
-            AboutView()
-        } label: {
-            HStack(spacing: 11) {
-                LogoMark(size: 22)
-                Text("About Reedar")
-                    .font(.heading(15))
-                    .foregroundStyle(Palette.ink)
-                Spacer()
-                Text(AboutView.shortVersion)
-                    .font(.numeric(14))
-                    .foregroundStyle(Palette.inkSecondary)
-                Image(systemName: "chevron.right")
-                    .font(.system(size: 12, weight: .semibold))
-                    .foregroundStyle(Palette.inkTertiary)
-            }
-            .padding(.horizontal, 14)
-            .padding(.vertical, 14)
-            .raised(depth: .low)
-        }
-        .buttonStyle(.sink)
-        .padding(.top, 2)
     }
 
     /// Retired reeds live one level down from the numbers they produced.

@@ -269,6 +269,9 @@ struct CaseView: View {
                 }
                 if arguments.contains("-openAdd") { addingTo = SlotTarget(index: 0) }
                 if arguments.contains("-openStats") { path.append(Destination.lifespan) }
+                // It used to be opened from the Lifespan screen, which is where
+                // the way into About used to be.
+                if arguments.contains("-openAbout") { path.append(Destination.about) }
             }
         }
     }
