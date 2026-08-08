@@ -19,6 +19,10 @@ struct CaseView: View {
     private let slotCount = 8
     private let slotGap: CGFloat = 8
 
+    /// The mark and the stats key are struck to one size, from one number, so
+    /// the two ends of the plate can't drift apart again.
+    private static let plateKeySize: CGFloat = 42
+
     private struct Carry: Equatable {
         var id: UUID
         var from: Int
@@ -216,7 +220,11 @@ struct CaseView: View {
     /// it were balanced by a spacer that exists only to be empty.
     private var headPlate: some View {
         HStack(alignment: .center, spacing: 11) {
-            LogoMark(size: 26)
+            // Struck the same size as the key at the other end of the plate.
+            // They are the two things on this row that aren't type, they sit at
+            // opposite ends of it, and at 26 against 42 the plate read as
+            // lopsided — the eye pairs them whether or not they're related.
+            LogoMark(size: Self.plateKeySize)
 
             VStack(alignment: .leading, spacing: 1) {
                 // Same tracking as the launch veil sets it in. The mark and the
@@ -244,7 +252,7 @@ struct CaseView: View {
                 Image(systemName: "chart.bar")
                     .font(.system(size: 16, weight: .semibold))
                     .foregroundStyle(Palette.ink)
-                    .frame(width: 42, height: 42)
+                    .frame(width: Self.plateKeySize, height: Self.plateKeySize)
                     .background {
                         // A key set into the plate, and the only thing on this
                         // screen that stands above the floor. It has to be cut
