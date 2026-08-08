@@ -8,11 +8,25 @@ struct CaseView: View {
     @Query(sort: \Reed.addedAt, order: .reverse) private var allReeds: [Reed]
 
     @State private var addingTo: SlotTarget?
-    @State private var showingData = false
-    /// Retired reeds were two taps deep behind the Lifespan screen, which is a
-    /// strange place to keep the other half of the collection.
-    @State private var showingArchive = false
-    @State private var path: [Reed] = []
+    /// Everything this screen can push, in one stack.
+    ///
+    /// It was a typed `[Reed]` path plus two `navigationDestination(isPresented:)`
+    /// booleans, which is two mechanisms describing one stack. Open the archive
+    /// by boolean and `path` is still empty; tap a reed in there and SwiftUI is
+    /// asked to reconcile a path of one reed against a stack showing a screen
+    /// that isn't in the path at all. That's the glitch — the tap doesn't
+    /// "not work", it lands somewhere incoherent.
+    ///
+    /// `NavigationPath` is type-erased on purpose: the archive can keep pushing
+    /// plain `Reed` values without having to know what routes home has.
+    @State private var path = NavigationPath()
+
+    /// The screens that hang off the plate. Retired reeds were two taps deep
+    /// behind Lifespan, which is a strange place to keep half the collection.
+    private enum Destination: Hashable {
+        case lifespan
+        case archive
+    }
 
     /// Everything about carrying a reed lives in gesture state, which SwiftUI
     /// resets on its own the moment the gesture ends or is cancelled. Storing
@@ -167,9 +181,13 @@ struct CaseView: View {
             .background { Backdrop() }
             .navigationBarHidden(true)
             .sheet(item: $addingTo) { AddReedView(slot: $0.index) }
-            .navigationDestination(isPresented: $showingData) { StatsView() }
-            .navigationDestination(isPresented: $showingArchive) { ArchiveView() }
             .navigationDestination(for: Reed.self) { ReedDetailView(reed: $0) }
+            .navigationDestination(for: Destination.self) { destination in
+                switch destination {
+                case .lifespan: StatsView()
+                case .archive: ArchiveView()
+                }
+            }
             .task {
                 normalizeSlots()
                 let arguments = ProcessInfo.processInfo.arguments
@@ -179,10 +197,10 @@ struct CaseView: View {
                 }
                 if arguments.contains("-openReed"),
                    let first = activeReeds.first(where: { $0.isBreakingIn }) ?? activeReeds.first {
-                    path = [first]
+                    path.append(first)
                 }
                 if arguments.contains("-openAdd") { addingTo = SlotTarget(index: 0) }
-                if arguments.contains("-openStats") { showingData = true }
+                if arguments.contains("-openStats") { path.append(Destination.lifespan) }
             }
         }
     }
@@ -247,9 +265,9 @@ struct CaseView: View {
             .padding(.horizontal, Self.plateKeySize + 12)
 
             HStack {
-                plateKey("archivebox", label: "Retired reeds") { showingArchive = true }
+                plateKey("archivebox", label: "Retired reeds") { path.append(Destination.archive) }
                 Spacer()
-                plateKey("chart.bar", label: "Lifespan data") { showingData = true }
+                plateKey("chart.bar", label: "Lifespan data") { path.append(Destination.lifespan) }
             }
         }
         // Struck level with the reeds, not with the engraving inside the bays.

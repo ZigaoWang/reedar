@@ -168,7 +168,15 @@ struct ReedView: View {
     var wear: Double = 0
     var stamp: String = ""
     var strengthStamp: String = ""
-    var isRetired: Bool = false
+
+    // There is no `isRetired`. It desaturated the whole reed to 40%, and a
+    // retired reed doesn't go grey — it's the same piece of cane it was the day
+    // before you put it in the drawer. What it does look is *used*, and `wear`
+    // already says that by darkening the vamp where the blade has been.
+    //
+    // Draining the colour was the interface editorialising about the object,
+    // which is the thing `ReedRow` refuses to do two files over: a greyed-out
+    // reed only ever raised the question of why.
 
     // Hardcoded, identical in every appearance. Clean cane tones: bright
     // golden bark, warm bone vamp. Everything here is either a flat colour or
@@ -243,7 +251,6 @@ struct ReedView: View {
             .compositingGroup()
             .clipShape(shape)
             .overlay { shape.stroke(outline.opacity(0.55), lineWidth: 1) }
-            .saturation(isRetired ? 0.4 : 1)
         }
     }
 
