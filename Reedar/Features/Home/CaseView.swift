@@ -679,6 +679,10 @@ struct ReedRow: View {
     var estimate: LifespanEstimate
     /// The reed that has rested longest — the one to play next.
     var isNextUp: Bool = false
+    /// The chevron says "this opens". On the page it already opened, it's a
+    /// promise about a tap that does nothing — the only part of the row that
+    /// isn't the reed itself.
+    var showsChevron: Bool = true
 
     private var wear: Double {
         guard estimate.minutes > 0 else { return 0 }
@@ -734,9 +738,11 @@ struct ReedRow: View {
                     .foregroundStyle(caneInk.opacity(0.75))
                     .frame(width: 62, alignment: .trailing)
 
-                    Image(systemName: "chevron.right")
-                        .font(.system(size: 12, weight: .semibold))
-                        .foregroundStyle(caneInk.opacity(0.45))
+                    if showsChevron {
+                        Image(systemName: "chevron.right")
+                            .font(.system(size: 12, weight: .semibold))
+                            .foregroundStyle(caneInk.opacity(0.45))
+                    }
                 }
                 .padding(.leading, 14)
                 .padding(.trailing, 14)

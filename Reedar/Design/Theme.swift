@@ -22,13 +22,16 @@ enum Metrics {
     /// narrower reads as a clarinet reed, or a chopstick.
     static let reedAspect: CGFloat = 3.4
 
-    /// A reed lying down, shown on its own. Longer than life, because that is
-    /// how a reed reads in a slot the width of the screen, but not as drawn
-    /// out as an actual case row. At true proportions it looks like a fatter,
-    /// different object next to the case; at full slot proportions it is a
-    /// strip. Anywhere a reed lies down outside the case uses this, so it is
-    /// the same reed from screen to screen.
-    static let reedLyingAspect: CGFloat = 4.6
+    /// A reed lying down, shown on its own.
+    ///
+    /// Struck to match a bay in the case, which on the phones this runs on
+    /// comes out around 4.4 — full width less the case margins, over an eighth
+    /// of what's left after the plate. It was 4.6, a middle ground between true
+    /// life and a case row, and the reed on the detail page came out visibly
+    /// thinner than the same reed two taps earlier. There is one reed in this
+    /// app and it should be the same object on every screen; a proportion of
+    /// its own for one screen is how it stops being that.
+    static let reedLyingAspect: CGFloat = 4.4
     static let hairline: CGFloat = 1
 }
 

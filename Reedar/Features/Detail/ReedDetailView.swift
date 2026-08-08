@@ -108,17 +108,28 @@ struct ReedDetailView: View {
     /// the top at its true proportions it is the reed.
     private var header: some View {
         VStack(alignment: .leading, spacing: 14) {
-            ReedView(
-                axis: .horizontalReversed,
-                wear: wear,
-                stamp: reed.brandName,
-                strengthStamp: reed.strengthLabel,
-                isRetired: reed.isRetired
-            )
+            // The same bay the case is moulded with, not a rounded box.
+            //
+            // `SlotMoulding` says it outright: a squared-off trough around an
+            // arched tip leaves a crescent of dead space that reads as a
+            // mistake. This screen was doing exactly that — the reed's tip
+            // curving away from four square corners — which is why the reed
+            // looked like a different object here than it does in the case.
+            //
+            // Reusing the component rather than copying its drawing is the
+            // point. Two hand-matched recesses drift the first time either is
+            // touched.
+            // The same row the case draws, in the same bay, at the same
+            // proportions. It used to be a bare `ReedView` with the brand
+            // stamped on the bark — a second way of drawing the same object,
+            // which is why the reed here read as a different reed from the one
+            // you tapped. Only the chevron goes, because this is the page it
+            // pointed at.
+            SlotMoulding {
+                ReedRow(reed: reed, estimate: estimate, showsChevron: false)
+            }
             .aspectRatio(Metrics.reedLyingAspect, contentMode: .fit)
             .frame(maxWidth: .infinity)
-            .padding(9)
-            .milled(radius: Metrics.radiusSlot)
 
             VStack(alignment: .leading, spacing: 7) {
                 HStack(spacing: 7) {
