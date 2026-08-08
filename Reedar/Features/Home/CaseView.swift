@@ -36,8 +36,17 @@ struct CaseView: View {
     /// it in `@State` is what left reeds stuck in the air.
     @GestureState private var carry: Carry?
 
-    private let slotCount = 8
-    private let slotGap: CGFloat = 8
+    /// Whether the case is the screen or an object on it — see `fit(in:)`.
+    ///
+    /// Width, not height, and the size class rather than a number of points: a
+    /// compact width is the system saying "this is being held in one hand",
+    /// which is exactly the condition the full-bleed case was drawn for. A
+    /// threshold in points had to be guessed, and guessed wrong — a 6.9" phone
+    /// is 440pt wide and wants every one of them.
+    @Environment(\.horizontalSizeClass) private var widthClass
+
+    private static let slotCount = 8
+    private static let slotGap: CGFloat = 8
 
     /// The mark and the stats key are struck to one size, from one number, so
     /// the two ends of the plate can't drift apart again.
@@ -64,7 +73,9 @@ struct CaseView: View {
     private struct Carry: Equatable {
         var id: UUID
         var from: Int
-        var translation: CGFloat = 0
+        /// Both axes. It was the vertical alone while the case was a single
+        /// column and there was nowhere sideways to go.
+        var translation: CGSize = .zero
         var isLifted = false
         /// Where along the reed the finger landed: 0 at the tip, 1 at the heel.
         /// Fixed for the life of the carry — it's where you took hold of it.
@@ -77,7 +88,7 @@ struct CaseView: View {
 
     /// The case laid out: one entry per slot, in the player's own order.
     private var slots: [Reed?] {
-        var result = [Reed?](repeating: nil, count: slotCount)
+        var result = [Reed?](repeating: nil, count: Self.slotCount)
         var overflow: [Reed] = []
 
         for reed in activeReeds.sorted(by: { $0.slotIndex < $1.slotIndex }) {
@@ -101,12 +112,24 @@ struct CaseView: View {
     /// one, not half of it. Half puts the switching point exactly where a
     /// finger comes to rest between two bays, and the reeds behind it then
     /// flip between two layouts on every pixel of hand tremor.
-    private func hoverSlot(_ carry: Carry, height: CGFloat) -> Int {
-        let step = height + slotGap
-        guard step > 0 else { return carry.from }
-        let exact = carry.translation / step
-        let moved = exact > 0 ? (exact + 0.38).rounded(.down) : (exact - 0.38).rounded(.up)
-        return min(max(carry.from + Int(moved), 0), slotCount - 1)
+    ///
+    /// The same rule now runs on both axes. Sideways it matters more, not
+    /// less: the columns are far apart, so a reed carried up a column passes
+    /// nowhere near the next one, and only a deliberate move across changes
+    /// which column it belongs to.
+    private func hoverSlot(_ carry: Carry, in grid: Grid) -> Int {
+        let row = grid.row(of: carry.from) + Self.steps(carry.translation.height, over: grid.step.height)
+        let column = grid.column(of: carry.from) + Self.steps(carry.translation.width, over: grid.step.width)
+        return grid.index(row: min(max(row, 0), grid.rows - 1),
+                          column: min(max(column, 0), grid.columns - 1))
+    }
+
+    /// How many whole bays a drag of `distance` has crossed, with the hysteresis
+    /// that keeps a hand resting on a boundary from flickering between two.
+    private static func steps(_ distance: CGFloat, over step: CGFloat) -> Int {
+        guard step > 0 else { return 0 }
+        let exact = distance / step
+        return Int(exact > 0 ? (exact + 0.38).rounded(.down) : (exact - 0.38).rounded(.up))
     }
 
     /// The case as it would look with one reed moved from one slot to another.
@@ -149,7 +172,7 @@ struct CaseView: View {
     /// Where a reed sits while a carry is in progress. The carried reed keeps
     /// its own slot — it's drawn floating above, offset by the drag — and the
     /// rest shift along to open a space for it.
-    private func displaySlot(of reed: Reed, height: CGFloat) -> Int {
+    private func displaySlot(of reed: Reed, in grid: Grid) -> Int {
         let settled = slots.firstIndex { $0?.id == reed.id } ?? reed.slotIndex
         guard let carry, carry.isLifted,
               let carried = activeReeds.first(where: { $0.id == carry.id })
@@ -157,7 +180,7 @@ struct CaseView: View {
 
         if carry.id == reed.id { return carry.from }
 
-        let hover = hoverSlot(carry, height: height)
+        let hover = hoverSlot(carry, in: grid)
         let preview = arrangement(moving: carried, from: carry.from, to: hover)
         return preview.firstIndex { $0?.id == reed.id } ?? settled
     }
@@ -165,26 +188,46 @@ struct CaseView: View {
     /// Which slots have a reed lying in them at this moment. A reed held in
     /// the hand has left its slot, so that slot is bare and says so — waiting
     /// for the drop to admit it left a numbered bay looking occupied.
-    private func occupiedSlots(height: CGFloat) -> Set<Int> {
+    private func occupiedSlots(in grid: Grid) -> Set<Int> {
         var result: Set<Int> = []
         for reed in activeReeds {
             let isCarried = reed.id == carry?.id && carry?.isLifted == true
             guard !isCarried else { continue }
-            result.insert(displaySlot(of: reed, height: height))
+            result.insert(displaySlot(of: reed, in: grid))
         }
         return result
     }
 
-    /// The reed a given slot is showing right now, carry included.
-    private func reed(inSlot index: Int, height: CGFloat) -> Reed? {
-        activeReeds.first { reed in
-            let isCarried = reed.id == carry?.id && carry?.isLifted == true
-            return !isCarried && displaySlot(of: reed, height: height) == index
-        }
-    }
+    // MARK: The grid of bays
 
-    private func slotY(_ index: Int, height: CGFloat) -> CGFloat {
-        CGFloat(index) * (height + slotGap)
+    /// Where every bay is. One column on a phone; on a display wide enough to
+    /// hold them, two of four — which is what an eight-reed case is, and what
+    /// one column of eight stops being once there's a screen's width spare.
+    ///
+    /// Numbering runs down a column and then back to the top of the next, so
+    /// bays 01–04 are the same four bays in the same order whichever shape the
+    /// case is in, and a reed doesn't change its number when the iPad turns.
+    private struct Grid {
+        var columns: Int
+        var rows: Int
+        var slot: CGSize
+        var gap: CGFloat
+        var columnGap: CGFloat
+
+        /// Centre-to-centre, the distance a reed travels to reach the next bay.
+        var step: CGSize {
+            CGSize(width: slot.width + columnGap, height: slot.height + gap)
+        }
+
+        func row(of index: Int) -> Int { index % rows }
+        func column(of index: Int) -> Int { index / rows }
+        func index(row: Int, column: Int) -> Int { column * rows + row }
+
+        /// The top-left corner of a bay, measured from the bed's own.
+        func origin(of index: Int) -> CGSize {
+            CGSize(width: CGFloat(column(of: index)) * step.width,
+                   height: CGFloat(row(of: index)) * step.height)
+        }
     }
 
     var body: some View {
@@ -195,7 +238,7 @@ struct CaseView: View {
             // printed inside. A view that ignores the safe area is told its
             // insets are zero, so it can't ask for them itself.
             GeometryReader { proxy in
-                caseBody(safeArea: proxy.safeAreaInsets)
+                caseBody(fitting: proxy.size, safeArea: proxy.safeAreaInsets)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                     .ignoresSafeArea()
             }
@@ -394,42 +437,156 @@ struct CaseView: View {
     ///
     /// The ground runs on under the status bar and the home indicator; only
     /// what's printed on it is held clear of them.
-    private func caseBody(safeArea: EdgeInsets) -> some View {
-        VStack(spacing: 10) {
+    ///
+    /// On a display too wide for eight reeds, only what's printed on the ground
+    /// narrows — see `bayWidth`. The ground itself always runs to the glass.
+    private func caseBody(fitting available: CGSize, safeArea: EdgeInsets) -> some View {
+        let bed = Self.bed(in: available, safeArea: safeArea, width: widthClass)
+        return VStack(spacing: Self.plateGap) {
             headPlate
-            slotBed
+            // Capped to the bays' own height, then given the rest of the screen
+            // back so it sits in the middle of it. The plate stays at the top
+            // where the lid's stamp belongs; it's the bed that centres.
+            slotBed(columns: bed.columns)
+                .frame(maxHeight: bed.height)
+                .frame(maxHeight: .infinity)
         }
         .padding(.horizontal, Self.caseInset)
+        // The bays, and only the bays. `nil` on a phone, where the cap doesn't
+        // exist and this frame does nothing.
+        .frame(maxWidth: bed.width)
+        .frame(maxWidth: .infinity)
         .padding(.top, max(13, safeArea.top + 4))
         .padding(.bottom, max(13, safeArea.bottom + 4))
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background { ground }
     }
 
-    private var slotBed: some View {
+    // MARK: Fitting the bays to the display
+
+    /// How the bed is arranged on this display, and how much room it takes.
+    ///
+    /// Both measurements or neither. A bay's proportion is fixed, so capping
+    /// the width without capping the height doesn't produce narrower reeds —
+    /// it produces squat ones, the rows still dividing the whole display
+    /// between them. Landscape is where that shows: the width runs out first,
+    /// and the height has to be told to follow it down.
+    private struct Bed {
+        var columns: Int
+        /// How wide the whole block of bays may be, insets included, or `nil`
+        /// on a phone where it takes the screen.
+        var width: CGFloat?
+        var height: CGFloat?
+    }
+
+    /// Choose the arrangement that gets the most reed onto the glass.
+    ///
+    /// A bay is a reed's outline, so its proportion is not negotiable: eight of
+    /// them dividing the height of a 13" iPad, each as wide as the iPad, are
+    /// eight paddles. Given that, an arrangement is pinned either by the
+    /// height it has to divide or by the width it has to fill, and the widest
+    /// bay that comes out of it wins — which lands on one column of eight in
+    /// portrait and two of four in landscape, without either being asked for
+    /// by name. That's the same reasoning a case maker uses: eight reeds in a
+    /// long thin box go in a row, eight in a squat one go in two.
+    ///
+    /// What is *not* negotiable is that the case is still the screen. The tray
+    /// runs to the glass and takes its corners from the display on an iPad
+    /// exactly as on a phone; only the bays stop short. Insetting the whole
+    /// case instead draws a rounded rectangle on a ground of the same colour,
+    /// which reads as a phone pasted onto an iPad however carefully it's lit.
+    private static func bed(in available: CGSize,
+                            safeArea: EdgeInsets,
+                            width: UserInterfaceSizeClass?) -> Bed {
+        // A phone, or a window as narrow as one: the case takes all of it.
+        //
+        // Small phones pay for that. Eight bays over an SE's 568 points of bed
+        // come out 5.2 : 1 against a reed's 4.4, and the only lever that would
+        // fix it is narrowing them — which was tried, and which trades a shape
+        // nobody measures for width everybody sees. Full width wins. The reed
+        // is a shade long on the smallest screens and that is the better bill.
+        guard width == .regular else { return Bed(columns: 1, width: nil, height: nil) }
+
+        // The reader is laid out inside the safe area and the case isn't, so
+        // the height it actually gets is the reader's plus the insets — which
+        // the padding then gives back.
+        let total = available.height + safeArea.top + safeArea.bottom
+        let chrome = plateHeight + plateGap
+            + max(13, safeArea.top + 4) + max(13, safeArea.bottom + 4)
+        let bedHeight = total - chrome
+
+        var best = Bed(columns: 1, width: nil, height: nil)
+        var widest: CGFloat = 0
+
+        for columns in [1, 2] {
+            let rows = slotCount / columns
+            let stacked = slotGap * CGFloat(rows - 1)
+            let between = columnGap * CGFloat(columns - 1)
+
+            // Pinned by the height it divides, or by the width it fills.
+            let byHeight = max((bedHeight - stacked) / CGFloat(rows), 0) * Metrics.reedLyingAspect
+            let byWidth = (available.width - caseInset * 2 - between) / CGFloat(columns)
+            let bay = min(maxBayWidth, byHeight, byWidth)
+
+            if bay > widest {
+                widest = bay
+                best = Bed(
+                    columns: columns,
+                    width: bay * CGFloat(columns) + between + caseInset * 2,
+                    height: bay / Metrics.reedLyingAspect * CGFloat(rows) + stacked
+                )
+            }
+        }
+        return best
+    }
+
+    /// Room above and below the bed: the plate and the gap under it.
+    private static let plateHeight: CGFloat = 52
+    private static let plateGap: CGFloat = 10
+    /// The wall between two columns of bays. Wider than the wall between two
+    /// stacked ones, because it separates two runs of reeds rather than two
+    /// neighbours in the same run — and because the moulding's thumb relief is
+    /// cut into the horizontal walls, not these.
+    private static let columnGap: CGFloat = 14
+    /// The widest the bays go. Set by the type printed on the cane rather than
+    /// by the reed: past about this the name and the hours are a small line of
+    /// text adrift in a very large piece of cane.
+    private static let maxBayWidth: CGFloat = 720
+
+    private func slotBed(columns: Int) -> some View {
         GeometryReader { geo in
-            let height = (geo.size.height - slotGap * CGFloat(slotCount - 1)) / CGFloat(slotCount)
+            let rows = Self.slotCount / columns
+            let grid = Grid(
+                columns: columns,
+                rows: rows,
+                slot: CGSize(
+                    width: (geo.size.width - Self.columnGap * CGFloat(columns - 1)) / CGFloat(columns),
+                    height: (geo.size.height - Self.slotGap * CGFloat(rows - 1)) / CGFloat(rows)
+                ),
+                gap: Self.slotGap,
+                columnGap: Self.columnGap
+            )
             // The slot the carried reed would drop into, if one is in hand.
             let hovered: Int? = carry.flatMap {
-                $0.isLifted ? hoverSlot($0, height: height) : nil
+                $0.isLifted ? hoverSlot($0, in: grid) : nil
             }
-            let occupied = occupiedSlots(height: height)
+            let occupied = occupiedSlots(in: grid)
 
-            ZStack(alignment: .top) {
-                // The mouldings never move.
-                VStack(spacing: slotGap) {
-                    ForEach(0..<slotCount, id: \.self) { index in
-                        SlotMoulding(index: index,
-                                     isEmpty: !occupied.contains(index),
-                                     isTarget: hovered == index) { Color.clear }
-                            .frame(height: height)
-                            .contentShape(Rectangle())
-                            .onTapGesture {
-                                guard carry?.isLifted != true, slots[index] == nil else { return }
-                                Haptics.slotTapped()
-                                addingTo = SlotTarget(index: index)
-                            }
-                    }
+            ZStack(alignment: .topLeading) {
+                // The mouldings never move. Placed by the grid rather than
+                // stacked, because with two columns there is no stack to be in.
+                ForEach(0..<Self.slotCount, id: \.self) { index in
+                    SlotMoulding(index: index,
+                                 isEmpty: !occupied.contains(index),
+                                 isTarget: hovered == index) { Color.clear }
+                        .frame(width: grid.slot.width, height: grid.slot.height)
+                        .contentShape(Rectangle())
+                        .onTapGesture {
+                            guard carry?.isLifted != true, slots[index] == nil else { return }
+                            Haptics.slotTapped()
+                            addingTo = SlotTarget(index: index)
+                        }
+                        .offset(grid.origin(of: index))
                 }
 
                 // The reeds sit on top, each positioned over its slot. Moving
@@ -441,8 +598,8 @@ struct CaseView: View {
                     // it tracks from the instant the touch lands — so a reed
                     // can answer a finger without a single line of new state.
                     let isPressed = carry?.id == reed.id && !isCarried
-                    let index = displaySlot(of: reed, height: height)
-                    let base = slotY(index, height: height)
+                    let index = displaySlot(of: reed, in: grid)
+                    let base = grid.origin(of: index)
 
                     ReedRow(
                         reed: reed,
@@ -450,7 +607,7 @@ struct CaseView: View {
                         isNextUp: reed.id == nextUp?.id
                     )
                     .padding(4)
-                    .frame(height: height)
+                    .frame(width: grid.slot.width, height: grid.slot.height)
                     // Every reed lies at the same height. The one to play next
                     // was drawn a shade proud of its bay for a while, as if
                     // somebody had half-pulled it out for you, and the first
@@ -492,7 +649,8 @@ struct CaseView: View {
                     // The seating is quick and damped, like anything with mass
                     // being pushed the last millimetre into a socket.
                     .animation(.mechanical, value: isPressed)
-                    .offset(y: base + (isCarried ? (carry?.translation ?? 0) : 0))
+                    .offset(x: base.width + (isCarried ? (carry?.translation.width ?? 0) : 0),
+                            y: base.height + (isCarried ? (carry?.translation.height ?? 0) : 0))
                     // Settled reeds glide to their new slot; the carried one
                     // tracks the finger with no animation in the way.
                     //
@@ -511,11 +669,10 @@ struct CaseView: View {
                     .zIndex(isCarried ? 1 : 0)
                     // Opening the reed lives inside this too — see the comment
                     // on `carryGesture`.
-                    .gesture(carryGesture(for: reed, at: index,
-                                          height: height, width: geo.size.width))
+                    .gesture(carryGesture(for: reed, at: index, in: grid))
                 }
             }
-            .frame(maxWidth: .infinity, alignment: .top)
+            .frame(maxWidth: .infinity, alignment: .topLeading)
             // A reed coming off the mouldings should be felt, not just seen —
             // there was no telling the moment it was in hand.
             .onChange(of: carry?.isLifted == true) { _, lifted in
@@ -551,6 +708,7 @@ struct CaseView: View {
     /// The grain matters more here than anywhere. This is the largest single
     /// surface in the app by a long way, and at that size a flat fill stops
     /// being a material and becomes a rectangle.
+    ///
     private var ground: some View {
         let shape = RoundedRectangle(cornerRadius: Metrics.radiusCase, style: .continuous)
         return shape
@@ -574,8 +732,7 @@ struct CaseView: View {
     /// Both outcomes live in the one gesture rather than in a `.gesture` and a
     /// separate `.onTapGesture`, because a drag that begins at zero distance
     /// claims the touch and the tap would never be told about it.
-    private func carryGesture(for reed: Reed, at index: Int,
-                             height: CGFloat, width: CGFloat) -> some Gesture {
+    private func carryGesture(for reed: Reed, at index: Int, in grid: Grid) -> some Gesture {
         DragGesture(minimumDistance: 0, coordinateSpace: .local)
             .updating($carry) { value, state, transaction in
                 let lifted = state?.isLifted == true || travelled(value) > Self.liftDistance
@@ -586,10 +743,10 @@ struct CaseView: View {
                 }
                 state = Carry(id: reed.id,
                               from: index,
-                              translation: lifted ? value.translation.height : 0,
+                              translation: lifted ? value.translation : .zero,
                               isLifted: lifted,
-                              grip: width > 0
-                                  ? min(max(value.startLocation.x / width, 0), 1)
+                              grip: grid.slot.width > 0
+                                  ? min(max(value.startLocation.x / grid.slot.width, 0), 1)
                                   : 0.5,
                               speed: lifted ? value.velocity.height : 0)
             }
@@ -600,7 +757,7 @@ struct CaseView: View {
                     path.append(reed)
                     return
                 }
-                drop(reed, from: index, translation: value.translation.height, height: height)
+                drop(reed, from: index, translation: value.translation, in: grid)
             }
     }
 
@@ -637,9 +794,9 @@ struct CaseView: View {
         return lag * arm
     }
 
-    private func drop(_ reed: Reed, from: Int, translation: CGFloat, height: CGFloat) {
+    private func drop(_ reed: Reed, from: Int, translation: CGSize, in grid: Grid) {
         let target = hoverSlot(Carry(id: reed.id, from: from, translation: translation),
-                               height: height)
+                               in: grid)
         guard target != from else { return }
 
         let moved = arrangement(moving: reed, from: from, to: target)
