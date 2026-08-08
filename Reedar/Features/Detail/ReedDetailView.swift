@@ -332,10 +332,17 @@ struct ReedDetailView: View {
 
     private var controls: some View {
         HStack(spacing: 9) {
+            // ⌘L only exists while a reed is open, which is the only time
+            // there's a reed to log against. The case screen's own commands
+            // are a stack behind this one and deliberately don't use the
+            // letter, so nothing has to be resolved between them.
             PrimaryKey(title: "Log session", symbol: "plus") { isLogging = true }
+                .keyboardShortcut("l", modifiers: .command)
+                .hoverEffect(.lift)
             IconKey(symbol: "archivebox", tint: nil, size: 50, label: "Retire reed") {
                 isRetiring = true
             }
+            .hoverEffect(.lift)
         }
     }
 

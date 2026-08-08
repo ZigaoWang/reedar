@@ -23,16 +23,25 @@ struct KeyButtonStyle: ButtonStyle {
             .scaleEffect(configuration.isPressed ? 0.97 : 1)
             .opacity(configuration.isPressed ? 0.82 : 1)
             .animation(.mechanical, value: configuration.isPressed)
+            // A key is hardware. Under a pointer it lifts, the way the reeds
+            // do — nothing in this app glows.
+            .hoverEffect(.lift)
     }
 }
 
 /// For rows and panels: they sink rather than travel.
+///
+/// The pointer effect lives here rather than at each call site. Every row in
+/// the app that can be pressed is already wearing this style, so one line here
+/// is the whole of iPad pointer support for rows — and, more to the point, a
+/// row added later can't forget it.
 struct SinkButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .scaleEffect(configuration.isPressed ? 0.985 : 1)
             .brightness(configuration.isPressed ? 0.05 : 0)
             .animation(.mechanical, value: configuration.isPressed)
+            .hoverEffect(.highlight)
     }
 }
 
@@ -155,6 +164,9 @@ private struct ChoiceKeyStyle: ButtonStyle {
             .scaleEffect(configuration.isPressed ? 0.97 : 1)
             .opacity(configuration.isPressed ? 0.82 : 1)
             .animation(.mechanical, value: configuration.isPressed)
+            // A key is hardware. Under a pointer it lifts, the way the reeds
+            // do — nothing in this app glows.
+            .hoverEffect(.lift)
     }
 }
 

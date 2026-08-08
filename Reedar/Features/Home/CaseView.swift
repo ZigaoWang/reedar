@@ -356,9 +356,13 @@ struct CaseView: View {
             .offset(y: -1.5)
 
             HStack {
-                plateKey("archivebox", label: "Retired reeds") { path.append(Destination.archive) }
+                plateKey("archivebox", label: "Retired reeds", key: "r") {
+                    path.append(Destination.archive)
+                }
                 Spacer()
-                plateKey("chart.bar", label: "Lifespan data") { path.append(Destination.lifespan) }
+                plateKey("chart.bar", label: "Lifespan data", key: "d") {
+                    path.append(Destination.lifespan)
+                }
             }
         }
         // `ReedRow` is inset 4 inside its bay, so the plate matches it and the
@@ -376,8 +380,12 @@ struct CaseView: View {
     /// A key on the plate. Both ends of the head are the same object, cut from
     /// lighter stock than the floor so they stand above it — milled into it,
     /// which was the first attempt, just reads as a hole punched in the case.
+    /// - Parameter key: the letter that reaches it from a keyboard. Both plate
+    ///   keys are one press away on an iPad with a keyboard attached, because
+    ///   both are one press away without one.
     private func plateKey(_ symbol: String,
                           label: String,
+                          key: KeyEquivalent,
                           action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Image(systemName: symbol)
@@ -397,6 +405,8 @@ struct CaseView: View {
         }
         .buttonStyle(.sink)
         .accessibilityLabel(label)
+        .keyboardShortcut(key, modifiers: .command)
+        .hoverEffect(.lift)
     }
 
     /// A line under the name, and only when there is something to teach.
@@ -460,6 +470,28 @@ struct CaseView: View {
         .padding(.bottom, max(13, safeArea.bottom + 4))
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background { ground }
+        .background { newReedShortcut }
+    }
+
+    /// ⌘N, and nothing to look at.
+    ///
+    /// Every other command on this screen hangs off something you can press, so
+    /// the shortcut is just a letter added to a button that already exists.
+    /// Adding a reed has no button — you tap the bay you want it in — so this
+    /// is the one command that needs a place to live. It fills the first free
+    /// bay, which is what a keyboard shortcut should do when the gesture it
+    /// stands in for is "pick one".
+    ///
+    /// Drawn at zero size rather than hidden: a `.hidden()` view is out of the
+    /// hierarchy and its shortcut goes with it.
+    @ViewBuilder private var newReedShortcut: some View {
+        if let free = slots.firstIndex(where: { $0 == nil }) {
+            Button("Add a reed") { addingTo = SlotTarget(index: free) }
+                .keyboardShortcut("n", modifiers: .command)
+                .frame(width: 0, height: 0)
+                .opacity(0)
+                .accessibilityHidden(true)
+        }
     }
 
     // MARK: Fitting the bays to the display
@@ -553,6 +585,29 @@ struct CaseView: View {
     /// text adrift in a very large piece of cane.
     private static let maxBayWidth: CGFloat = 720
 
+    /// One bay, in its place. Its own function because the chain — moulding,
+    /// size, tap target, hover shape, position — is more than the type-checker
+    /// will infer inside a `ForEach` inside a `ZStack` inside a `GeometryReader`.
+    private func bay(_ index: Int, in grid: Grid,
+                     isEmpty: Bool, isTarget: Bool, scale: CGFloat) -> some View {
+        SlotMoulding(index: index, isEmpty: isEmpty, isTarget: isTarget,
+                     scale: scale) { Color.clear }
+            .frame(width: grid.slot.width, height: grid.slot.height)
+            .contentShape(Rectangle())
+            .onTapGesture {
+                guard carry?.isLifted != true, slots[index] == nil else { return }
+                Haptics.slotTapped()
+                addingTo = SlotTarget(index: index)
+            }
+            // Under a trackpad pointer an empty bay lights up the recess it
+            // actually is, rather than the rectangle it's laid out in. A full
+            // one doesn't light at all: the reed lying in it is the thing the
+            // pointer is over, and it answers for itself.
+            .contentShape(.hoverEffect, ReedShape.bay)
+            .hoverEffect(isEmpty ? .highlight : .automatic, isEnabled: isEmpty)
+            .offset(grid.origin(of: index))
+    }
+
     private func slotBed(columns: Int) -> some View {
         GeometryReader { geo in
             let rows = Self.slotCount / columns
@@ -579,18 +634,8 @@ struct CaseView: View {
                 // The mouldings never move. Placed by the grid rather than
                 // stacked, because with two columns there is no stack to be in.
                 ForEach(0..<Self.slotCount, id: \.self) { index in
-                    SlotMoulding(index: index,
-                                 isEmpty: !occupied.contains(index),
-                                 isTarget: hovered == index,
-                                 scale: printScale) { Color.clear }
-                        .frame(width: grid.slot.width, height: grid.slot.height)
-                        .contentShape(Rectangle())
-                        .onTapGesture {
-                            guard carry?.isLifted != true, slots[index] == nil else { return }
-                            Haptics.slotTapped()
-                            addingTo = SlotTarget(index: index)
-                        }
-                        .offset(grid.origin(of: index))
+                    bay(index, in: grid, isEmpty: !occupied.contains(index),
+                        isTarget: hovered == index, scale: printScale)
                 }
 
                 // The reeds sit on top, each positioned over its slot. Moving
@@ -613,6 +658,12 @@ struct CaseView: View {
                     )
                     .padding(4)
                     .frame(width: grid.slot.width, height: grid.slot.height)
+                    // A pointer over a reed lifts it, which is the one hover
+                    // effect that means what it says here: this is a thing you
+                    // pick up. Cut to the reed's own outline so the pointer
+                    // takes hold of the cane rather than of a card behind it.
+                    .contentShape(.hoverEffect, ReedShape(axis: .horizontalReversed))
+                    .hoverEffect(.lift)
                     // Every reed lies at the same height. The one to play next
                     // was drawn a shade proud of its bay for a while, as if
                     // somebody had half-pulled it out for you, and the first
@@ -830,6 +881,20 @@ struct SlotTarget: Identifiable {
 
 // MARK: - Slot
 
+extension ReedShape {
+    /// The moulding a reed lies in.
+    ///
+    /// The bay is the reed's own outline, not a rounded box: a case is moulded
+    /// to hold reeds, and a squared-off trough around an arched tip leaves a
+    /// crescent of dead space that reads as a mistake. The heel corners get a
+    /// radius the reed itself does not have, so the end bays stop cutting
+    /// across the shell's own rounding.
+    ///
+    /// The relief is cut 5pt deep because the wall it eats into is the 8pt gap
+    /// between two bays, and a scoop that breaks through is a hole.
+    static let bay = ReedShape(axis: .horizontalReversed, heelRadius: 9, thumbRelief: 5)
+}
+
 /// The moulded recess in the case. Drawn once per slot, whether or not a reed
 /// is lying in it.
 struct SlotMoulding<Content: View>: View {
@@ -842,14 +907,7 @@ struct SlotMoulding<Content: View>: View {
     @ViewBuilder var content: Content
 
     var body: some View {
-        // The bay is the reed's own outline, not a rounded box: a case is
-        // moulded to hold reeds, and a squared-off trough around an arched tip
-        // leaves a crescent of dead space that reads as a mistake. The heel
-        // corners get a radius the reed itself does not have, so the end bays
-        // stop cutting across the shell's own rounding.
-        // The relief is cut 5pt deep because the wall it eats into is the 8pt
-        // gap between two bays, and a scoop that breaks through is a hole.
-        let shape = ReedShape(axis: .horizontalReversed, heelRadius: 9, thumbRelief: 5)
+        let shape = ReedShape.bay
         // Color.clear guarantees the moulding has a size even when the slot is
         // empty — an empty conditional on its own lays out at zero height.
         return ZStack {
