@@ -123,10 +123,9 @@ struct ReedDetailView: View {
             // proportions. It used to be a bare `ReedView` with the brand
             // stamped on the bark — a second way of drawing the same object,
             // which is why the reed here read as a different reed from the one
-            // you tapped. Only the chevron goes, because this is the page it
-            // pointed at.
+            // you tapped.
             SlotMoulding {
-                ReedRow(reed: reed, estimate: estimate, showsChevron: false)
+                ReedRow(reed: reed, estimate: estimate)
             }
             .aspectRatio(Metrics.reedLyingAspect, contentMode: .fit)
             .frame(maxWidth: .infinity)
