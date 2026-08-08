@@ -20,6 +20,7 @@ struct ArchiveView: View {
                 }
             }
             .padding(.horizontal, Metrics.screenMargin)
+            .column()
             .padding(.top, 4)
             .padding(.bottom, 28)
         }

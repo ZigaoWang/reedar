@@ -18,6 +18,16 @@ enum Metrics {
     static let screenMargin: CGFloat = 16
     static let stack: CGFloat = 12
 
+    /// The widest a column of panels and sentences is allowed to run.
+    ///
+    /// Every screen behind the case is a single column of full-width panels,
+    /// which is right at a phone's measure and wrong at an iPad's: a sentence
+    /// set across 1,000 points is a sentence nobody's eye can return from, and
+    /// a two-line panel stretched to the same width is mostly emptiness with a
+    /// label at one end. The column holds them to the measure they were drawn
+    /// at and lets the backdrop have the rest.
+    static let column: CGFloat = 520
+
     /// A sax reed is about 2cm across and 7cm long — roughly 1 : 3.4. Anything
     /// narrower reads as a clarinet reed, or a chopstick.
     static let reedAspect: CGFloat = 3.4
@@ -81,6 +91,16 @@ extension Font {
 }
 
 extension View {
+    /// Holds a screen's content to one column, centred.
+    ///
+    /// Applied outside the screen margin, so the margin stays the content's own
+    /// and the column simply stops it spreading. On a phone the limit is never
+    /// reached and this does nothing at all.
+    func column(_ width: CGFloat = Metrics.column) -> some View {
+        frame(maxWidth: width)
+            .frame(maxWidth: .infinity)
+    }
+
     /// A section label: small caps, wide, quiet.
     func microLabel(_ color: Color = Palette.inkSecondary) -> some View {
         self

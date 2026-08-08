@@ -21,6 +21,7 @@ struct AboutView: View {
                     footer
                 }
                 .padding(.horizontal, Metrics.screenMargin)
+                .column()
                 .padding(.top, 8)
                 .padding(.bottom, 20)
                 // There is not much on this screen. Filling the height rather

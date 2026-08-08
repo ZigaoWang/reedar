@@ -99,6 +99,7 @@ struct StatsView: View {
                     colophon
                 }
             .padding(.horizontal, Metrics.screenMargin)
+            .column()
             .padding(.bottom, 28)
         }
         .scrollIndicators(.hidden)

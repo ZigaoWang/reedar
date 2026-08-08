@@ -29,6 +29,7 @@ struct RetireReedView: View {
                         .padding(.top, 2)
                 }
                 .padding(.horizontal, Metrics.screenMargin)
+                .column()
                 .padding(.bottom, 28)
             }
             .scrollIndicators(.hidden)

@@ -35,6 +35,7 @@ struct ReedDetailView: View {
                 history
             }
             .padding(.horizontal, Metrics.screenMargin)
+            .column()
             .padding(.bottom, 28)
         }
         .scrollIndicators(.hidden)
