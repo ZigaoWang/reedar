@@ -571,6 +571,9 @@ struct CaseView: View {
                 $0.isLifted ? hoverSlot($0, in: grid) : nil
             }
             let occupied = occupiedSlots(in: grid)
+            // What's printed on a bay, and on the reed lying in it, is sized to
+            // the bay rather than to the phone the app was drawn on.
+            let printScale = ReedRow.scale(for: grid.slot.width)
 
             ZStack(alignment: .topLeading) {
                 // The mouldings never move. Placed by the grid rather than
@@ -578,7 +581,8 @@ struct CaseView: View {
                 ForEach(0..<Self.slotCount, id: \.self) { index in
                     SlotMoulding(index: index,
                                  isEmpty: !occupied.contains(index),
-                                 isTarget: hovered == index) { Color.clear }
+                                 isTarget: hovered == index,
+                                 scale: printScale) { Color.clear }
                         .frame(width: grid.slot.width, height: grid.slot.height)
                         .contentShape(Rectangle())
                         .onTapGesture {
@@ -604,7 +608,8 @@ struct CaseView: View {
                     ReedRow(
                         reed: reed,
                         estimate: LifespanStats.estimate(for: reed, among: allReeds),
-                        isNextUp: reed.id == nextUp?.id
+                        isNextUp: reed.id == nextUp?.id,
+                        scale: printScale
                     )
                     .padding(4)
                     .frame(width: grid.slot.width, height: grid.slot.height)
@@ -831,6 +836,9 @@ struct SlotMoulding<Content: View>: View {
     var index: Int = 0
     var isEmpty: Bool = false
     var isTarget: Bool = false
+    /// Matches the reeds' — see `ReedRow.scale`. A bay's number is stamped into
+    /// the same plastic at the same size whatever else is going on.
+    var scale: CGFloat = 1
     @ViewBuilder var content: Content
 
     var body: some View {
@@ -896,12 +904,12 @@ struct SlotMoulding<Content: View>: View {
     /// weights this really does come out a smudge.
     private var engraving: some View {
         Text(indexLabel(index + 1))
-            .font(.numeric(13, weight: .bold))
+            .font(.numeric(13 * scale, weight: .bold))
             .tracking(1)
             .foregroundStyle(Color.white.opacity(0.17))
             .shadow(color: .black.opacity(0.9), radius: 0.5, y: -0.7)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(.leading, 16)
+            .padding(.leading, 16 * scale)
             .opacity(isTarget ? 0 : 1)
             .animation(.mechanical, value: isTarget)
     }
@@ -914,6 +922,24 @@ struct ReedRow: View {
     var estimate: LifespanEstimate
     /// The reed that has rested longest — the one to play next.
     var isNextUp: Bool = false
+    /// How much bigger this bay is than a phone's, from `ReedRow.scale(for:)`.
+    ///
+    /// What's printed on a reed is printed at a size that suits the reed. An
+    /// iPad bay is half as wide again as a phone's, and a name set at the
+    /// phone's 16pt across it isn't restrained, it's a caption that has lost
+    /// its picture — the cane reads as empty and the whole case as a phone
+    /// screen someone has stretched.
+    var scale: CGFloat = 1
+
+    /// The type scale for a bay of a given width.
+    ///
+    /// One below a phone's own bay and never less, so nothing on a phone can
+    /// move by so much as a point; capped a little over half again, because
+    /// past that the type stops being printing on a reed and starts being a
+    /// heading that happens to sit on one.
+    static func scale(for bayWidth: CGFloat) -> CGFloat {
+        min(max(bayWidth / 400, 1), 1.55)
+    }
 
     private var wear: Double {
         guard estimate.minutes > 0 else { return 0 }
@@ -929,27 +955,27 @@ struct ReedRow: View {
         // greyed-out row only ever raised the question of why.
         ReedView(axis: .horizontalReversed, wear: wear)
             .overlay {
-                HStack(alignment: .center, spacing: 10) {
-                    VStack(alignment: .leading, spacing: 2) {
-                        HStack(spacing: 5) {
+                HStack(alignment: .center, spacing: 10 * scale) {
+                    VStack(alignment: .leading, spacing: 2 * scale) {
+                        HStack(spacing: 5 * scale) {
                             if reed.isFavourite {
                                 Image(systemName: "star.fill")
-                                    .font(.system(size: 11, weight: .semibold))
+                                    .font(.system(size: 11 * scale, weight: .semibold))
                                     .foregroundStyle(caneInk.opacity(0.75))
                             }
                             Text(reed.slotTitle)
-                                .font(.heading(16))
+                                .font(.heading(16 * scale))
                                 .foregroundStyle(caneInk)
                                 .lineLimit(1)
                                 .minimumScaleFactor(0.7)
                         }
-                        HStack(spacing: 5) {
+                        HStack(spacing: 5 * scale) {
                             Text(statusLabel)
-                                .font(.copy(12.5, weight: isNextUp ? .bold : .semibold))
+                                .font(.copy(12.5 * scale, weight: isNextUp ? .bold : .semibold))
                                 .foregroundStyle(caneInk.opacity(isNextUp ? 1 : 0.8))
                             if let total {
                                 Text(total)
-                                    .font(.copy(12.5))
+                                    .font(.copy(12.5 * scale))
                                     .foregroundStyle(caneInk.opacity(0.55))
                             }
                         }
@@ -958,24 +984,23 @@ struct ReedRow: View {
 
                     Spacer(minLength: 4)
 
-                    VStack(alignment: .trailing, spacing: 1) {
+                    VStack(alignment: .trailing, spacing: 1 * scale) {
                         Text(reed.brandName)
-                            .font(.brand(12))
+                            .font(.brand(12 * scale))
                             .lineLimit(1)
                             .minimumScaleFactor(0.7)
                         Text(reed.strengthLabel)
-                            .font(.numeric(12, weight: .bold))
+                            .font(.numeric(12 * scale, weight: .bold))
                     }
                     .foregroundStyle(caneInk.opacity(0.75))
-                    .frame(width: 62, alignment: .trailing)
+                    .frame(width: 62 * scale, alignment: .trailing)
 
                     // No chevron. Nothing is printed on a reed to tell you it
                     // can be picked up, and a disclosure arrow on cane is the
                     // interface leaking back onto the object — the same reason
                     // the bays lost their plus sign.
                 }
-                .padding(.leading, 14)
-                .padding(.trailing, 14)
+                .padding(.horizontal, 14 * scale)
             }
     }
 
