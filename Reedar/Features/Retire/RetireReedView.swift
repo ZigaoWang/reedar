@@ -33,14 +33,10 @@ struct RetireReedView: View {
             }
             .scrollIndicators(.hidden)
             .background { Backdrop() }
+            .navigationTitle("Retire")
             .navigationBarTitleDisplayMode(.inline)
             .toolbarBackground(.hidden, for: .navigationBar)
             .toolbar {
-                ToolbarItem(placement: .principal) {
-                    Text("Retire")
-                        .font(.heading(12, weight: .bold))
-                        .foregroundStyle(Palette.ink)
-                }
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") { dismiss() }
                         .font(.heading(12, weight: .medium))

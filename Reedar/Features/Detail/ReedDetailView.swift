@@ -39,14 +39,18 @@ struct ReedDetailView: View {
         }
         .scrollIndicators(.hidden)
         .background { Backdrop() }
+        // The short name, not the full one. `displayTitle` is the whole
+        // "D'Addario Select Jazz Unfiled 2M", which is why this was hand-set
+        // 12pt in the first place — nothing else would fit. At the system size
+        // it would simply truncate, and a truncated name in a title bar tells
+        // you less than a short one that fits.
+        //
+        // The full name is directly below anyway, in the header, at a size
+        // that can hold it.
+        .navigationTitle(reed.slotTitle)
         .navigationBarTitleDisplayMode(.inline)
         .toolbarBackground(.hidden, for: .navigationBar)
         .toolbar {
-            ToolbarItem(placement: .principal) {
-                Text(reed.displayTitle)
-                    .font(.heading(12, weight: .bold))
-                    .foregroundStyle(Palette.ink)
-            }
             ToolbarItem(placement: .topBarTrailing) {
                 Menu {
                     Button {

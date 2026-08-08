@@ -25,15 +25,13 @@ struct ArchiveView: View {
         }
         .scrollIndicators(.hidden)
         .background { Backdrop() }
+        // The system's title, at the system's size, like every other screen.
+        // This was a hand-rolled principal item at 12pt bold, which came out
+        // noticeably smaller than Lifespan's next door — two conventions for
+        // one thing, and no reason for either.
+        .navigationTitle("Archive")
         .navigationBarTitleDisplayMode(.inline)
         .toolbarBackground(.hidden, for: .navigationBar)
-        .toolbar {
-            ToolbarItem(placement: .principal) {
-                Text("Archive")
-                    .font(.heading(12, weight: .bold))
-                    .foregroundStyle(Palette.ink)
-            }
-        }
     }
 }
 
