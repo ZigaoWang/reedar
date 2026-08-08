@@ -28,6 +28,15 @@ enum Metrics {
     /// at and lets the backdrop have the rest.
     static let column: CGFloat = 520
 
+    /// The same, for a screen laid out in two columns rather than one.
+    ///
+    /// Not twice `column`: two columns of full measure side by side is a
+    /// broadsheet, and the eye has to travel the width of an iPad to get from
+    /// the end of one panel to the start of the next. Held here, each column
+    /// comes out a little over a phone's width, which is what these panels
+    /// were drawn at in the first place.
+    static let spread: CGFloat = 880
+
     /// A sax reed is about 2cm across and 7cm long — roughly 1 : 3.4. Anything
     /// narrower reads as a clarinet reed, or a chopstick.
     static let reedAspect: CGFloat = 3.4

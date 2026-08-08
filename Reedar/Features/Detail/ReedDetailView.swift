@@ -23,8 +23,34 @@ struct ReedDetailView: View {
         return Double(reed.playingMinutes) / estimate.minutes
     }
 
-    var body: some View {
-        ScrollView {
+    @Environment(\.horizontalSizeClass) private var widthClass
+    private var isWide: Bool { widthClass == .regular }
+
+    /// One column on a phone; two where there's room for two.
+    ///
+    /// The split is not arbitrary. The left column is the reed — what it is,
+    /// what state it's in, what it has done and how much it has left — and it
+    /// reads top to bottom as one answer. The right column is what you came to
+    /// do to it and what you have already done: the log button, then the log.
+    /// Anything you can act on is on one side, everything you can only read is
+    /// on the other, which is also why the button ends up level with the reed's
+    /// own name rather than four panels below it.
+    @ViewBuilder private var layout: some View {
+        if isWide {
+            HStack(alignment: .top, spacing: Metrics.gutter) {
+                VStack(spacing: Metrics.stack) {
+                    header
+                    statusPanel
+                    stats
+                    lifeSection
+                }
+                VStack(spacing: Metrics.stack) {
+                    if !reed.isRetired { controls }
+                    if !reed.notes.isEmpty { notes }
+                    history
+                }
+            }
+        } else {
             VStack(spacing: Metrics.stack) {
                 header
                 statusPanel
@@ -34,9 +60,15 @@ struct ReedDetailView: View {
                 if !reed.notes.isEmpty { notes }
                 history
             }
-            .padding(.horizontal, Metrics.screenMargin)
-            .column()
-            .padding(.bottom, 28)
+        }
+    }
+
+    var body: some View {
+        ScrollView {
+            layout
+                .padding(.horizontal, Metrics.screenMargin)
+                .column(isWide ? Metrics.spread : Metrics.column)
+                .padding(.bottom, 28)
         }
         .scrollIndicators(.hidden)
         .background { Backdrop() }

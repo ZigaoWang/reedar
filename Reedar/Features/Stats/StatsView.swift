@@ -71,36 +71,81 @@ struct StatsView: View {
     /// the first one.
     private var best: LifespanSummary? { summaries.first }
 
-    var body: some View {
-        ScrollView {
+    @Environment(\.horizontalSizeClass) private var widthClass
+    private var isWide: Bool { widthClass == .regular }
+
+    /// One column on a phone; two where there's room.
+    ///
+    /// Left is the counting — what's left in the case, how much you play, the
+    /// totals — and right is the finding, which is the one thing on this screen
+    /// anybody came for: how long each model lasts you. In one column the
+    /// finding is below three panels of arithmetic and you scroll past the
+    /// question to reach the answer.
+    ///
+    /// The empty state stays a single column whatever the screen. It is one
+    /// short paragraph explaining that there's nothing yet, and a paragraph set
+    /// in the left half of an iPad with a column of nothing beside it is worse
+    /// than the same paragraph in the middle.
+    @ViewBuilder private var layout: some View {
+        if counted.isEmpty {
             VStack(spacing: Metrics.stack) {
-                    if counted.isEmpty {
-                        pending
-                    } else {
-                        headline
-                        playing
-                        allTime
-                        KeySelector(values: Grouping.allCases, selection: $grouping,
-                                    title: \.title, symbol: nil, columns: 2)
-                        chart
-                        if summaries.contains(where: { !$0.isConfident }) {
-                            HStack(alignment: .top, spacing: 7) {
-                                Image(systemName: "hourglass")
-                                    .font(.system(size: 10, weight: .semibold))
-                                Text("Faded means fewer than 3 reeds so far.")
-                                    .font(.copy(11.5))
-                            }
-                            .foregroundStyle(Palette.inkSecondary)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .padding(.horizontal, 4)
-                            .padding(.top, 2)
-                        }
-                    }
+                pending
+                colophon
+            }
+        } else if isWide {
+            HStack(alignment: .top, spacing: Metrics.gutter) {
+                VStack(spacing: Metrics.stack) {
+                    headline
+                    playing
+                    allTime
+                }
+                VStack(spacing: Metrics.stack) {
+                    grouper
+                    chart
+                    confidenceNote
                     colophon
                 }
-            .padding(.horizontal, Metrics.screenMargin)
-            .column()
-            .padding(.bottom, 28)
+            }
+        } else {
+            VStack(spacing: Metrics.stack) {
+                headline
+                playing
+                allTime
+                grouper
+                chart
+                confidenceNote
+                colophon
+            }
+        }
+    }
+
+    private var grouper: some View {
+        KeySelector(values: Grouping.allCases, selection: $grouping,
+                    title: \.title, symbol: nil, columns: 2)
+    }
+
+    /// Says so when the chart is drawn from too few reeds to trust.
+    @ViewBuilder private var confidenceNote: some View {
+        if summaries.contains(where: { !$0.isConfident }) {
+            HStack(alignment: .top, spacing: 7) {
+                Image(systemName: "hourglass")
+                    .font(.system(size: 10, weight: .semibold))
+                Text("Faded means fewer than 3 reeds so far.")
+                    .font(.copy(11.5))
+            }
+            .foregroundStyle(Palette.inkSecondary)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, 4)
+            .padding(.top, 2)
+        }
+    }
+
+    var body: some View {
+        ScrollView {
+            layout
+                .padding(.horizontal, Metrics.screenMargin)
+                .column(isWide && !counted.isEmpty ? Metrics.spread : Metrics.column)
+                .padding(.bottom, 28)
         }
         .scrollIndicators(.hidden)
         .background { Backdrop() }
