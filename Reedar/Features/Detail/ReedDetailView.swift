@@ -31,7 +31,6 @@ struct ReedDetailView: View {
                 stats
                 lifeSection
                 if !reed.isRetired { controls }
-                if reed.isRetired { retiredNote }
                 if !reed.notes.isEmpty { notes }
                 history
             }
@@ -204,13 +203,29 @@ struct ReedDetailView: View {
     /// The state, then anything worth knowing about this particular reed, in
     /// one paragraph. Break-in advice used to be a second panel below this
     /// one, which read as a competing headline rather than a footnote to it.
+    ///
+    /// A retired reed reads the same way. The headline is already "Retired", so
+    /// the line under it carries the two things the headline can't — why, and
+    /// when — rather than repeating the word and the date.
     private var detail: String {
+        if reed.isRetired {
+            let date = Format.mediumDate(reed.retiredAt ?? Date())
+            guard let reason = reed.retireReason else { return "Retired \(date)" }
+            return "\(reason.displayName) · \(date)"
+        }
         let state = reed.statusDetail(against: estimate)
-        guard reed.isBreakingIn, !reed.isRetired else { return state }
+        guard reed.isBreakingIn else { return state }
         return state.hasSuffix(".") ? state + " New reed, keep sessions short."
                                     : state + ". New reed, keep sessions short."
     }
 
+    /// One panel for the state, retired or not.
+    ///
+    /// There were two. This one said "Retired / Retired Jul 11, 2026" and a
+    /// second one below said "RETIRED — Jul 11, 2026 / Went flat" — the same
+    /// word twice, the same date twice, in two boxes, because the reason was
+    /// bolted on as its own panel instead of going in the slot that already
+    /// existed for it.
     private var statusPanel: some View {
         let status = reed.status(against: estimate)
         return Panel {
@@ -227,6 +242,15 @@ struct ReedDetailView: View {
                     .font(.copy(13))
                     .foregroundStyle(Palette.inkSecondary)
                     .fixedSize(horizontal: false, vertical: true)
+
+                // Whatever the player wrote when they retired it. Their own
+                // words, so they sit under the facts rather than beside them.
+                if reed.isRetired, !reed.retireNote.isEmpty {
+                    Text(reed.retireNote)
+                        .font(.copy(12))
+                        .foregroundStyle(Palette.inkTertiary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
             }
         }
     }
@@ -271,27 +295,6 @@ struct ReedDetailView: View {
             PrimaryKey(title: "Log session", symbol: "plus") { isLogging = true }
             IconKey(symbol: "archivebox", tint: nil, size: 50, label: "Retire reed") {
                 isRetiring = true
-            }
-        }
-    }
-
-    private var retiredNote: some View {
-        Panel {
-            VStack(alignment: .leading, spacing: 8) {
-                RuleHeader("Retired", trailing: Format.mediumDate(reed.retiredAt ?? Date()))
-                HStack(spacing: 8) {
-                    Image(systemName: reed.retireReason?.symbolName ?? "archivebox")
-                        .font(.system(size: 12, weight: .semibold))
-                        .foregroundStyle(Palette.accent)
-                    Text(reed.retireReason?.displayName ?? "Retired")
-                        .font(.heading(13, weight: .semibold))
-                        .foregroundStyle(Palette.ink)
-                }
-                if !reed.retireNote.isEmpty {
-                    Text(reed.retireNote)
-                        .font(.copy(12))
-                        .foregroundStyle(Palette.inkSecondary)
-                }
             }
         }
     }
