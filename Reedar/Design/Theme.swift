@@ -30,12 +30,17 @@ enum Metrics {
 
     /// The same, for a screen laid out in two columns rather than one.
     ///
-    /// Not twice `column`: two columns of full measure side by side is a
-    /// broadsheet, and the eye has to travel the width of an iPad to get from
-    /// the end of one panel to the start of the next. Held here, each column
-    /// comes out a little over a phone's width, which is what these panels
-    /// were drawn at in the first place.
-    static let spread: CGFloat = 880
+    /// Exactly two columns and the gutter between them. It was held narrower
+    /// than this at first, on the theory that a column near a phone's width is
+    /// the width these panels were drawn for — which is true of the panels and
+    /// false of the screen. In landscape it put a small block of interface in
+    /// the middle of a 13" display with a third of the glass bare on either
+    /// side: not two columns, one column sawn in half.
+    ///
+    /// If a column of 520 is the right measure for one, it is the right measure
+    /// for each of two. What's left over is backdrop, and there's much less
+    /// of it.
+    static let spread: CGFloat = column * 2 + gutter
 
     /// A sax reed is about 2cm across and 7cm long — roughly 1 : 3.4. Anything
     /// narrower reads as a clarinet reed, or a chopstick.
