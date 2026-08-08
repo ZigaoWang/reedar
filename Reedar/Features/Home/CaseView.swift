@@ -9,6 +9,9 @@ struct CaseView: View {
 
     @State private var addingTo: SlotTarget?
     @State private var showingData = false
+    /// Retired reeds were two taps deep behind the Lifespan screen, which is a
+    /// strange place to keep the other half of the collection.
+    @State private var showingArchive = false
     @State private var path: [Reed] = []
 
     /// Everything about carrying a reed lives in gesture state, which SwiftUI
@@ -149,14 +152,6 @@ struct CaseView: View {
         CGFloat(index) * (height + slotGap)
     }
 
-    private var weekMinutes: Int {
-        let cutoff = Calendar.current.date(byAdding: .day, value: -7, to: Date()) ?? Date()
-        return allReeds
-            .flatMap { $0.sessions ?? [] }
-            .filter { $0.date >= cutoff }
-            .reduce(0) { $0 + $1.playingMinutes }
-    }
-
     var body: some View {
         NavigationStack(path: $path) {
             // The reader is laid out inside the safe area purely to be told
@@ -173,6 +168,7 @@ struct CaseView: View {
             .navigationBarHidden(true)
             .sheet(item: $addingTo) { AddReedView(slot: $0.index) }
             .navigationDestination(isPresented: $showingData) { StatsView() }
+            .navigationDestination(isPresented: $showingArchive) { ArchiveView() }
             .navigationDestination(for: Reed.self) { ReedDetailView(reed: $0) }
             .task {
                 normalizeSlots()
@@ -214,63 +210,47 @@ struct CaseView: View {
     /// would be the screen saying one thing twice instead of two things once.
     ///
     /// Left-aligned rather than centred: every other thing on this screen —
-    /// bay numbers, reed names, statuses — reads off the left margin, and one
-    /// centred element among them is an exception with nothing behind it. A
-    /// centred name would also sit visibly off-centre next to the key, unless
-    /// it were balanced by a spacer that exists only to be empty.
+    /// bay numbers, reed names, statuses — reads off the left margin. It works
+    /// here because it is the maker's mark on the lid: the one thing on the
+    /// screen that isn't part of the rotation, and the one thing a screenshot
+    /// needs. A key at each end holds it there.
+    ///
+    /// The lockup is centred on the plate, not on the space between the two
+    /// keys — a `ZStack`, not the middle of an `HStack`. Centred between them
+    /// it would only look centred while both keys stayed the same width.
     private var headPlate: some View {
-        HStack(alignment: .center, spacing: 11) {
-            // Struck the same size as the key at the other end of the plate.
-            // They are the two things on this row that aren't type, they sit at
-            // opposite ends of it, and at 26 against 42 the plate read as
-            // lopsided — the eye pairs them whether or not they're related.
-            LogoMark(size: Self.plateKeySize)
+        ZStack {
+            VStack(spacing: 3) {
+                HStack(spacing: 10) {
+                    // Sized to the wordmark, not to the keys. In a centred
+                    // lockup the mark answers to the type it sits beside.
+                    LogoMark(size: 34)
+                    // Same tracking as the launch veil sets it in. The mark and
+                    // the name are one lockup, and it should be the same lockup
+                    // on the way in as on the screen it hands over to.
+                    Text("Reedar")
+                        .font(.title(22))
+                        .tracking(0.5)
+                        .foregroundStyle(Palette.ink)
+                }
 
-            VStack(alignment: .leading, spacing: 1) {
-                // Same tracking as the launch veil sets it in. The mark and the
-                // name are one lockup, and it should be the same lockup on the
-                // way in as on the screen it hands over to.
-                Text("Reedar")
-                    .font(.title(17))
-                    .tracking(0.4)
-                    .foregroundStyle(Palette.ink)
-                Text(plateDetail)
-                    .font(.copy(12.5))
-                    .foregroundStyle(Palette.inkSecondary)
+                if let plateHint {
+                    Text(plateHint)
+                        .font(.copy(12.5))
+                        .foregroundStyle(Palette.inkSecondary)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.8)
+                }
             }
-            .lineLimit(1)
-            .minimumScaleFactor(0.8)
-            // The line changes as one piece of engraving rather than as a label
-            // being swapped out.
-            .animation(.settle, value: plateDetail)
+            // Clear of the keys at both ends, so a long line shortens rather
+            // than running under them.
+            .padding(.horizontal, Self.plateKeySize + 12)
 
-            Spacer(minLength: 4)
-
-            Button {
-                showingData = true
-            } label: {
-                Image(systemName: "chart.bar")
-                    .font(.system(size: 16, weight: .semibold))
-                    .foregroundStyle(Palette.ink)
-                    .frame(width: Self.plateKeySize, height: Self.plateKeySize)
-                    .background {
-                        // A key set into the plate, and the only thing on this
-                        // screen that stands above the floor. It has to be cut
-                        // from lighter stock than the floor to read that way —
-                        // milled into it, which was the first attempt, just
-                        // reads as a hole punched in the case.
-                        let shape = RoundedRectangle(cornerRadius: Metrics.radiusKey,
-                                                     style: .continuous)
-                        shape
-                            .fill(Palette.keyFace)
-                            .overlay { Light.bevel(shape, highlight: 0.14, shade: 0.3) }
-                            .overlay { shape.strokeBorder(Palette.hairline, lineWidth: 1) }
-                            .clipShape(shape)
-                            .shadow(color: .black.opacity(0.45), radius: 5, y: 2)
-                    }
+            HStack {
+                plateKey("archivebox", label: "Retired reeds") { showingArchive = true }
+                Spacer()
+                plateKey("chart.bar", label: "Lifespan data") { showingData = true }
             }
-            .buttonStyle(.sink)
-            .accessibilityLabel("Lifespan data")
         }
         // Struck level with the reeds, not with the engraving inside the bays.
         // Those are two different left margins — 21 from the glass and 37 —
@@ -285,19 +265,48 @@ struct CaseView: View {
         .frame(height: 52)
     }
 
-    /// The one line under the name. It carries the week, because that is the
-    /// only thing on this screen the case itself can't show you: which reed to
-    /// play is printed on the cane, and how each one is doing is printed beside
-    /// it. How much you have actually played is nowhere else outside Lifespan.
+    /// A key on the plate. Both ends of the head are the same object, cut from
+    /// lighter stock than the floor so they stand above it — milled into it,
+    /// which was the first attempt, just reads as a hole punched in the case.
+    private func plateKey(_ symbol: String,
+                          label: String,
+                          action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Image(systemName: symbol)
+                .font(.system(size: 16, weight: .semibold))
+                .foregroundStyle(Palette.ink)
+                .frame(width: Self.plateKeySize, height: Self.plateKeySize)
+                .background {
+                    let shape = RoundedRectangle(cornerRadius: Metrics.radiusKey,
+                                                 style: .continuous)
+                    shape
+                        .fill(Palette.keyFace)
+                        .overlay { Light.bevel(shape, highlight: 0.14, shade: 0.3) }
+                        .overlay { shape.strokeBorder(Palette.hairline, lineWidth: 1) }
+                        .clipShape(shape)
+                        .shadow(color: .black.opacity(0.45), radius: 5, y: 2)
+                }
+        }
+        .buttonStyle(.sink)
+        .accessibilityLabel(label)
+    }
+
+    /// A line under the name, and only when there is something to teach.
     ///
-    /// It used to say "3 reeds · 3 ready to play" as well, which is the screen
-    /// counting something you can see eight bays of.
-    private var plateDetail: String {
-        if carry?.isLifted == true { return "Drop it in any slot" }
-        if activeReeds.isEmpty { return "Tap any slot to add your first reed" }
-        return weekMinutes > 0
-            ? "\(Format.duration(minutes: weekMinutes)) this week"
-            : "Nothing played this week"
+    /// It used to carry the week's playing time on every launch. That's gone —
+    /// the plate is the maker's mark, and a running total sitting under it
+    /// turned it into a dashboard. The number still lives on the Lifespan
+    /// screen, which is the screen for numbers.
+    ///
+    /// The empty case keeps its line, because it has to. With the `+` gone from
+    /// the bays and the disclosure arrow gone from the reeds, this sentence is
+    /// now the only thing on a first launch that says a bay can be tapped.
+    ///
+    /// It deliberately doesn't cover the carry. A line appearing while a reed
+    /// is in the air would grow the plate, and the bed below it would shrink —
+    /// every bay resizing under the reed you're holding.
+    private var plateHint: String? {
+        activeReeds.isEmpty ? "Tap any slot to add your first reed" : nil
     }
 
     /// The reed that has rested longest, if there's a useful answer.
