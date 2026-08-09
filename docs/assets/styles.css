@@ -1,0 +1,193 @@
+/* Reedar — reedar.app
+ *
+ * One column, centred, and as little of it as the page can get away with.
+ *
+ * The first version of this site was the landing page everyone builds: an
+ * eyebrow label over a huge headline, a grey paragraph, two buttons, a phone
+ * floated to the right, alternating feature rows, then six cards in a grid. It
+ * is a template, and it reads as one — every section arguing for a product the
+ * reader can already see.
+ *
+ * So: the app's name, one sentence, and the screens. The screens are the
+ * argument. Everything here exists to stay out of their way — nothing is wider
+ * than it needs to be, nothing is centred and then also boxed, and no colour
+ * appears that the app does not use.
+ *
+ * Values come from Reedar/Design/Palette.swift. Black only: the app ships a
+ * light material too, but its identity is a reed case, and a case is black.
+ */
+
+:root {
+  --ground: #0a0a0b;
+  --ink: #f6f6f4;
+  --ink-2: #9e9ea4;
+  --ink-3: #7d7d84;
+  --accent: #ff6a1a;
+  --hairline: rgba(255, 255, 255, 0.08);
+
+  --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+  /* The one serif, with one job: names that belong to makers. */
+  --serif: ui-serif, "Iowan Old Style", Palatino, Georgia, serif;
+}
+
+* { box-sizing: border-box; }
+img { max-width: 100%; height: auto; display: block; }
+
+html { -webkit-text-size-adjust: 100%; }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+
+body {
+  margin: 0;
+  background: var(--ground);
+  color: var(--ink);
+  font-family: var(--sans);
+  font-size: 17px;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+
+a { color: var(--ink); text-decoration: none; }
+a:hover { color: var(--accent); }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 3px; }
+
+.wrap { width: 100%; max-width: 60rem; margin-inline: auto; padding-inline: 24px; }
+
+.skip { position: absolute; left: -9999px; }
+.skip:focus {
+  left: 24px; top: 16px; z-index: 2;
+  background: var(--accent); color: #1a0c02;
+  padding: 9px 14px; border-radius: 8px;
+}
+
+/* ── Head and foot ────────────────────────────────────────────────────── */
+
+header, footer { font-size: 0.94rem; }
+
+header .wrap, footer .wrap {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 16px 24px; flex-wrap: wrap;
+}
+header .wrap { padding-block: 26px; }
+
+.brand { display: inline-flex; align-items: center; gap: 9px; }
+.brand:hover { color: var(--ink); }
+.brand img { width: 24px; height: 24px; border-radius: 6px; }
+.wordmark {
+  font-family: var(--serif);
+  font-weight: 700; font-size: 19px; letter-spacing: -0.01em;
+  /* "Reedar" has no descenders, so the word rides high in its own box. */
+  transform: translateY(1px);
+}
+
+nav { display: flex; gap: 22px; }
+nav a { color: var(--ink-2); }
+
+footer {
+  margin-top: clamp(72px, 10vw, 128px);
+  border-top: 1px solid var(--hairline);
+  color: var(--ink-3);
+}
+footer .wrap { padding-block: 28px 44px; }
+footer a { color: var(--ink-2); }
+
+/* ── Opening ──────────────────────────────────────────────────────────── */
+
+.intro {
+  text-align: center;
+  max-width: 34rem;              /* a line nobody's eye has to return from */
+  margin: clamp(44px, 8vw, 96px) auto clamp(40px, 6vw, 64px);
+}
+.intro img { width: 74px; height: 74px; border-radius: 17px; margin: 0 auto 26px; }
+
+h1 {
+  margin: 0;
+  font-size: clamp(1.9rem, 4.2vw, 2.55rem);
+  line-height: 1.16;
+  letter-spacing: -0.024em;
+  font-weight: 600;
+}
+.intro p { margin: 16px 0 0; color: var(--ink-2); font-size: 1.06rem; }
+
+.status { margin-top: 22px; color: var(--ink-3); font-size: 0.9rem; }
+
+/* ── The screens ──────────────────────────────────────────────────────── */
+
+.screens {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: clamp(16px, 2.4vw, 30px);
+  align-items: start;
+}
+@media (max-width: 54rem) { .screens { grid-template-columns: repeat(2, 1fr); row-gap: 36px; } }
+@media (max-width: 26rem) { .screens { grid-template-columns: 1fr; max-width: 20rem; margin-inline: auto; } }
+
+.screens figure { margin: 0; }
+.screens img {
+  border-radius: clamp(12px, 1.6vw, 20px);
+  border: 1px solid var(--hairline);
+}
+
+/* One short line each, in the same small size the rest of the chrome uses, so
+   this adds information without adding a type style. Sentence case: the tracked
+   uppercase version read as a label on a diagram rather than a caption. Kept to
+   four or five words so the four wrap the same way and sit as a row. */
+.screens figcaption {
+  margin-top: 14px;
+  text-align: center;
+  color: var(--ink-3);
+  font-size: 0.9rem;
+  line-height: 1.4;
+}
+
+/* ── iPad, and the closing line ───────────────────────────────────────── */
+
+.pad { margin: clamp(52px, 8vw, 92px) 0 0; }
+.pad img { border-radius: clamp(10px, 1.2vw, 16px); border: 1px solid var(--hairline); }
+
+/* The same paragraph style as the opening line, used once more at the end.
+   
+   This page had drifted to nine type styles: a display size, a lead, body, a
+   status line, tracked uppercase labels under every screenshot, a bold-and-grey
+   pair under the iPad one, and a closing block of its own. Each was defensible
+   alone, and the pile of them is what reads as a template. Four are left: the
+   headline, this paragraph, body, and one small size for the chrome. */
+.closing {
+  margin: clamp(44px, 6vw, 72px) auto 0;
+  max-width: 34rem;
+  text-align: center;
+  color: var(--ink-2);
+  font-size: 1.06rem;
+}
+
+/* ── Prose pages ──────────────────────────────────────────────────────── */
+
+/* A document page is one narrow column, and the masthead and footer are part
+   of it.
+   
+   Two earlier attempts both looked wrong for the same reason: the prose was a
+   40rem column inside a 60rem wrap, so it never lined up with the wordmark and
+   the links above it. Centred, it started well right of the logo; left-aligned,
+   it hugged one edge while the nav sat far off at the other. Narrowing the wrap
+   itself puts all three on the same measure, which is what makes it read as a
+   page rather than as two designs stacked. */
+body.doc .wrap { max-width: 42rem; }
+.prose { margin-top: clamp(36px, 6vw, 64px); }
+.prose h1 { font-size: clamp(2rem, 5vw, 3rem); line-height: 1.1; }
+.prose .statement {
+  margin-top: 26px;
+  color: var(--ink);
+  font-size: clamp(1.2rem, 2.4vw, 1.6rem);
+  line-height: 1.3;
+  letter-spacing: -0.016em;
+}
+.prose .updated { margin-top: 20px; color: var(--ink-3); font-size: 0.9rem; }
+.prose h2 { margin: 44px 0 0; font-size: 1.1rem; font-weight: 600; letter-spacing: -0.012em; }
+.prose h3 { margin: 30px 0 0; font-size: 1rem; font-weight: 600; }
+.prose p { margin: 12px 0 0; color: var(--ink-2); }
+.prose ul { margin: 12px 0 0; padding-left: 1.1rem; color: var(--ink-2); }
+.prose li { margin-top: 6px; }
+.prose a { color: var(--accent); }
+.prose a:hover { text-decoration: underline; }
+
+.contact { margin-top: 26px; display: flex; flex-wrap: wrap; gap: 20px; }
+.contact a { color: var(--accent); }
