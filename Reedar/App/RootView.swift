@@ -17,6 +17,18 @@ struct RootView: View {
     @AppStorage(Intro.seenKey) private var hasSeenIntro = false
 
     @State private var showingWelcome = false
+    /// Which of the welcome's two pages is showing.
+    ///
+    /// Owned here rather than inside `WelcomeView`, and set back to the first
+    /// page every time the welcome is asked for. It lived in the welcome as
+    /// `@State` to begin with, and SwiftUI keeps a view's state between
+    /// presentations of the same cover — so "Show the welcome again" in
+    /// Settings reopened on whichever page you last left it on, which for
+    /// anybody who had finished onboarding is always the second. Resetting it
+    /// in `onAppear`, and giving the cover a fresh `id`, were both attempts to
+    /// talk SwiftUI out of that. Owning the value is not an attempt: there is
+    /// no state left in there to come back.
+    @State private var welcomePage = WelcomeView.Page.hello
     /// Set when the welcome hands over, and read once by the case, which owns
     /// the add flow.
     @State private var startAdding = false
@@ -56,7 +68,7 @@ struct RootView: View {
             // questions asked one at a time. That flow is the teaching. This
             // is only the door.
             .fullScreenCover(isPresented: $showingWelcome) {
-                WelcomeView {
+                WelcomeView(page: $welcomePage) {
                     finish(addReed: true)
                 } skip: {
                     finish(addReed: false)
@@ -67,7 +79,7 @@ struct RootView: View {
             // After the veil, not under it.
             .onChange(of: showingVeil) { _, veiled in
                 guard !veiled, !hasSeenIntro else { return }
-                showingWelcome = true
+                showWelcome(atLaunch: true)
             }
             // And whenever the flag is cleared, which is what Settings does.
             // Watching only the veil meant "Show the welcome again" set a flag
@@ -75,8 +87,23 @@ struct RootView: View {
             // cold launch and did nothing at all when you pressed it.
             .onChange(of: hasSeenIntro) { _, seen in
                 guard !seen, !showingVeil else { return }
-                showingWelcome = true
+                showWelcome()
             }
+    }
+
+    /// Always from the beginning.
+    ///
+    /// `-welcomePage2` opens on the second screen, for looking at it without
+    /// tapping through the first — but only for the launch itself. A launch
+    /// argument is read from `ProcessInfo` and so is true for the whole life of
+    /// the process, which meant "Show the welcome again" in Settings kept being
+    /// told to open on page two for as long as the app stayed running. A debug
+    /// flag must not outlive the launch it was passed for.
+    private func showWelcome(atLaunch: Bool = false) {
+        welcomePage = atLaunch
+            && ProcessInfo.processInfo.arguments.contains("-welcomePage2")
+            ? .what : .hello
+        showingWelcome = true
     }
 
     private func finish(addReed: Bool) {
