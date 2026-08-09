@@ -339,10 +339,12 @@ struct ReedDetailView: View {
             PrimaryKey(title: "Log session", symbol: "plus") { isLogging = true }
                 .keyboardShortcut("l", modifiers: .command)
                 .hoverEffect(.lift)
+                .tourTarget(.logKey)
             IconKey(symbol: "archivebox", tint: nil, size: 50, label: "Retire reed") {
                 isRetiring = true
             }
             .hoverEffect(.lift)
+            .tourTarget(.retireKey)
         }
     }
 

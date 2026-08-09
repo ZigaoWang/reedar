@@ -406,6 +406,7 @@ struct CaseView: View {
                 plateKey("chart.bar", label: "Lifespan data", key: "d") {
                     path.append(Destination.lifespan)
                 }
+                .tourTarget(.lifespanKey)
             }
         }
         // `ReedRow` is inset 4 inside its bay, so the plate matches it and the
@@ -765,6 +766,7 @@ struct CaseView: View {
                     // Opening the reed lives inside this too — see the comment
                     // on `carryGesture`.
                     .gesture(carryGesture(for: reed, at: index, in: grid))
+                    .tourTargetIf(index == 0, .firstReed)
                 }
             }
             .frame(maxWidth: .infinity, alignment: .topLeading)

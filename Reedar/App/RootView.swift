@@ -4,6 +4,9 @@ import SwiftUI
 /// There is one screen: the case. Everything else is reached through a reed,
 /// or through the single button in the corner.
 struct RootView: View {
+    /// Whether the case below is the borrowed one the tour is given on.
+    var isDemo = false
+
     /// Cold launch only. `RootView` is built once per process, so this starting
     /// value can't come back after the veil has gone — returning from the
     /// background doesn't rebuild the view, and so doesn't show it again.
@@ -16,9 +19,9 @@ struct RootView: View {
     /// business syncing to another device that has its own first launch to do.
     @AppStorage(Intro.seenKey) private var hasSeenIntro = false
 
-    @State private var showingIntro = false
-    /// Set when the introduction ends on "Add your first reed", and read once
-    /// by the case, which owns the add flow.
+    @State private var tour = Tour()
+    /// Set when the tour ends on "Add my first reed", and read once by the
+    /// case, which owns the add flow.
     @State private var startAdding = false
 
     var body: some View {
@@ -27,6 +30,7 @@ struct RootView: View {
             .preferredColorScheme(.dark)
             .tint(Palette.accent)
             .task { Haptics.warmUp() }
+            .environment(tour)
             // Nothing here transforms the case, and nothing here transforms the
             // veil's black either. Both were tried and both were wrong: a scale
             // is a geometry effect, and under one SwiftUI stops honouring the
@@ -44,26 +48,36 @@ struct RootView: View {
                     LaunchVeil(isPresented: $showingVeil)
                 }
             }
-            // After the veil, not under it. Two things arriving over the case at
-            // once is two things nobody watched.
-            .onChange(of: showingVeil) { _, veiled in
-                guard !veiled, !hasSeenIntro else { return }
-                showingIntro = true
-            }
-            .fullScreenCover(isPresented: $showingIntro) {
-                IntroView { addReed in
-                    hasSeenIntro = true
-                    showingIntro = false
-                    startAdding = addReed
+            // The tour rides on top of the whole app, reading the anchors that
+            // every screen underneath publishes. It has to live here rather
+            // than inside the case: half of what it points at — the log key,
+            // the retire key — is two screens further in.
+            .overlayPreferenceValue(TourAnchors.self) { anchors in
+                GeometryReader { proxy in
+                    if tour.isRunning {
+                        TourOverlay(tour: tour, spot: tour.step.target
+                            .flatMap { anchors[$0] }
+                            .map { proxy[$0] })
+                    }
                 }
+                // The reader has to span the same rectangle the anchors were
+                // measured in. Laid out inside the safe area it reads every
+                // target about ninety points high — the height of the status
+                // bar — and rings the plate instead of the reed.
+                .ignoresSafeArea()
             }
-            .task {
-                // Seeing it again on demand, from Settings or the simulator —
-                // and getting past it, for looking at a first-run case that
-                // still has its slip of paper in it.
-                let arguments = ProcessInfo.processInfo.arguments
-                if arguments.contains("-resetIntro") { hasSeenIntro = false }
-                if arguments.contains("-skipIntro") { hasSeenIntro = true }
+            // After the veil, not under it. Two things arriving over the case
+            // at once is two things nobody watched.
+            .onChange(of: showingVeil) { _, veiled in
+                guard !veiled, !hasSeenIntro, isDemo else { return }
+                withAnimation(.settle) { tour.isRunning = true }
+            }
+            // Ending the tour is what puts the player's own store back: see
+            // `ReedarApp`, which is watching this same flag.
+            .onChange(of: tour.isRunning) { _, running in
+                guard !running, !hasSeenIntro else { return }
+                startAdding = tour.wantsFirstReed
+                hasSeenIntro = true
             }
     }
 }
