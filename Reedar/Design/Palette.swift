@@ -241,11 +241,22 @@ enum Palette {
 /// bright value and dimming it algorithmically gives a muddy mid-tone that is
 /// too dark for one material and too pale for the other.
 ///
-/// Six, and no greens or reds near the signal colours: a green accent sitting
-/// beside the green "Ready" lamp, or a red one beside a spent reed's red
-/// segments, makes the app look like it is saying something it isn't.
+/// No greens or reds near the signal colours: a green accent sitting beside
+/// the green "Ready" lamp, or a red one beside a spent reed's red segments,
+/// makes the app look like it is saying something it isn't.
+///
+/// The last of them isn't a colour. `mono` is the ink of whichever material it
+/// is on — near-white on black plastic, near-black on bone — which leaves the
+/// only colour anywhere on the screen the cane itself, and the green, amber and
+/// red of the lamps. On a screen whose whole job is a row of reeds, that is a
+/// defensible way to want it, and it is the one accent that can never be
+/// mistaken for a signal.
+///
+/// It still needs both values written out rather than being "no accent": this
+/// colour sets text and fills keys, so it has to turn over with the material
+/// like every other one.
 enum Accent: String, CaseIterable, Identifiable, Sendable {
-    case orange, amber, rust, teal, blue, violet
+    case orange, amber, rust, teal, blue, violet, mono
 
     static let key = "accent"
 
@@ -265,6 +276,7 @@ enum Accent: String, CaseIterable, Identifiable, Sendable {
         case .teal: "Teal"
         case .blue: "Blue"
         case .violet: "Violet"
+        case .mono: "Mono"
         }
     }
 
@@ -277,6 +289,7 @@ enum Accent: String, CaseIterable, Identifiable, Sendable {
         case .teal: Tone(body: 0x26D0B0, deep: 0x12B092)
         case .blue: Tone(body: 0x4AA8FF, deep: 0x2588E0)
         case .violet: Tone(body: 0xB98CFF, deep: 0x9A69E8)
+        case .mono: Tone(body: 0xE8E8E6, deep: 0xC6C6C3)
         }
     }
 
@@ -289,6 +302,7 @@ enum Accent: String, CaseIterable, Identifiable, Sendable {
         case .teal: Tone(body: 0x0B7A68, deep: 0x066253)
         case .blue: Tone(body: 0x1B63C7, deep: 0x1350A6)
         case .violet: Tone(body: 0x6A3FC7, deep: 0x5631A6)
+        case .mono: Tone(body: 0x2A2A2E, deep: 0x151518)
         }
     }
 }
