@@ -73,7 +73,7 @@ struct LEDBar: View {
             ForEach(0..<segments, id: \.self) { index in
                 let isLit = index < litCount
                 RoundedRectangle(cornerRadius: 1.5, style: .continuous)
-                    .fill(isLit ? tint(for: index) : Color.white.opacity(0.07))
+                    .fill(isLit ? tint(for: index) : Palette.ledOff)
                     .shadow(color: isLit ? tint(for: index).opacity(0.5) : .clear, radius: 3)
             }
         }
@@ -90,7 +90,7 @@ struct LED: View {
 
     var body: some View {
         Circle()
-            .fill(isOn ? tint : Color.white.opacity(0.10))
+            .fill(isOn ? tint : Palette.ledOff)
             .frame(width: size, height: size)
             .shadow(color: isOn ? tint.opacity(0.7) : .clear, radius: 4)
             .animation(.mechanical, value: isOn)

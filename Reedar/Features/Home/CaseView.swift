@@ -64,7 +64,18 @@ struct CaseView: View {
     @Environment(\.horizontalSizeClass) private var widthClass
 
     private static let slotCount = 8
-    private static let slotGap: CGFloat = 8
+    /// The wall between two bays, and so also the only material the thumb
+    /// scoop has to be cut out of — see `ReedShape.thumbRelief`.
+    ///
+    /// It was 8, from when a reed sat 4pt inside its bay: half the scoop was in
+    /// the clearance above the cane, so half of it was spent where you couldn't
+    /// see it. A reed fills its bay now, so every point of the scoop's depth
+    /// shows below the cane — which means the scoop did not need to get bigger,
+    /// the wall needed to stop being the thing that limited it.
+    ///
+    /// 12 rather than 8, and the scoop stays at 5: seven points of wall left
+    /// under it, and a clear line of case between one bay and the next.
+    private static let slotGap: CGFloat = 12
 
     /// The mark and the stats key are struck to one size, from one number, so
     /// the two ends of the plate can't drift apart again.
@@ -306,6 +317,7 @@ struct CaseView: View {
                 // It used to be opened from the Lifespan screen, which is where
                 // the way into About used to be.
                 if arguments.contains("-openAbout") { path.append(Destination.about) }
+                if arguments.contains("-openSettings") { path.append(Destination.settings) }
             }
         }
     }
@@ -426,15 +438,17 @@ struct CaseView: View {
                 }
             }
         }
-        // `ReedRow` is inset 4 inside its bay, so the plate matches it and the
-        // keys land on the reeds' own edges rather than 4pt inside them.
+        // A reed fills its bay exactly, so the plate sits on the bays' own
+        // edges and the keys land on the reeds' edges with it. It used to
+        // carry a 4pt inset here to match a 4pt clearance around the reeds;
+        // both are gone together.
         //
         // The outer margin is `caseInset`, and it's even on both sides — which
         // is the whole reason the mark can simply be centred here. While the
         // case was lopsided there were two centres 4pt apart, the screen's and
         // the midpoint between the keys; centre the mark on either and it
         // reads off against the other, which is why nudging it never fixed it.
-        .padding(.horizontal, 4)
+
         .frame(height: 52)
     }
 
@@ -458,10 +472,12 @@ struct CaseView: View {
                                                  style: .continuous)
                     shape
                         .fill(Palette.keyFace)
-                        .overlay { Light.bevel(shape, highlight: 0.14, shade: 0.3) }
+                        .overlay { Light.bevel(shape,
+                                               highlight: Palette.keyHighlight,
+                                               shade: Palette.keyShade) }
                         .overlay { shape.strokeBorder(Palette.hairline, lineWidth: 1) }
                         .clipShape(shape)
-                        .shadow(color: .black.opacity(0.45), radius: 5, y: 2)
+                        .shadow(color: Palette.dropShadow, radius: 5, y: 2)
                 }
         }
         .buttonStyle(.sink)
@@ -758,7 +774,6 @@ struct CaseView: View {
                         isNextUp: reed.id == nextUp?.id,
                         scale: printScale
                     )
-                    .padding(4)
                     .frame(width: grid.slot.width, height: grid.slot.height)
                     // A pointer over a reed lifts it, which is the one hover
                     // effect that means what it says here: this is a thing you
@@ -801,7 +816,12 @@ struct CaseView: View {
                     // Flattened first, or the shadow reaches every view inside
                     // and each letter printed on the cane casts its own.
                     .compositingGroup()
-                    .shadow(color: .black.opacity(isCarried ? 0.6 : 0.55),
+                    // Black at 55%, which is a black-case value and was written
+                    // when there was only a black case. On bone plastic it is
+                    // the grey ring that appeared to be drawn around every
+                    // reed: not a border, not the bay, just a dark-material
+                    // shadow left switched on in a pale material.
+                    .shadow(color: isCarried ? Palette.dropShadow : Palette.slotContact,
                             radius: isCarried ? 16 : (isPressed ? 1.5 : 3),
                             y: isCarried ? 10 : (isPressed ? 0.5 : 1.5))
                     // The seating is quick and damped, like anything with mass
@@ -988,13 +1008,22 @@ extension ReedShape {
     ///
     /// The bay is the reed's own outline, not a rounded box: a case is moulded
     /// to hold reeds, and a squared-off trough around an arched tip leaves a
-    /// crescent of dead space that reads as a mistake. The heel corners get a
-    /// radius the reed itself does not have, so the end bays stop cutting
-    /// across the shell's own rounding.
+    /// crescent of dead space that reads as a mistake.
     ///
-    /// The relief is cut 5pt deep because the wall it eats into is the 8pt gap
-    /// between two bays, and a scoop that breaks through is a hole.
-    static let bay = ReedShape(axis: .horizontalReversed, heelRadius: 9, thumbRelief: 5)
+    /// It is the reed's outline exactly — same heel break, same tip arch — so
+    /// that a reed lying in a bay covers it precisely and the two read as one
+    /// object. The only thing the bay has that a reed does not is the scoop,
+    /// and that is the one part of it you are meant to see when a reed is in.
+    ///
+    /// The relief is cut 5pt deep into the 12pt wall between two bays. Depth
+    /// is the number to be careful with twice over: it is all you can see of
+    /// the scoop, since everything above the reed's edge is behind the reed —
+    /// and it also sets the width, which is a multiple of it. Cut to 8 the
+    /// scoop came out 80pt across with 2pt of wall under it, which is not a
+    /// scoop in a case, it is a bite out of one.
+    static let bay = ReedShape(axis: .horizontalReversed,
+                               heelRadius: ReedShape.bayHeelRadius,
+                               thumbRelief: 5)
 }
 
 /// The moulded recess in the case. Drawn once per slot, whether or not a reed
@@ -1017,12 +1046,18 @@ struct SlotMoulding<Content: View>: View {
             if isEmpty { engraving }
             content
         }
-            .padding(4)
+            // No clearance. A reed used to sit 4pt inside its bay, and every
+            // attempt to make that ring look like something — a lit floor, a
+            // darker floor, a contact shadow, a narrower gap — was an attempt
+            // to style a gap between two outlines that were never going to
+            // agree. They agree now, so there is nothing to style: the reed
+            // covers its bay exactly, and a filled slot is a reed.
+            .padding(0)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .background {
                 ZStack {
                     // The floor of the recess, in shadow under its near wall.
-                    shape.fill(Palette.recessFace)
+                    shape.fill(Palette.bayFloor)
                     // The walls: dark where they face away from the light,
                     // bright where the far one turns back toward it.
                     //
@@ -1033,15 +1068,24 @@ struct SlotMoulding<Content: View>: View {
                     // settings it was a black rectangle with a hairline on it.
                     // The far wall is where the work is: it's the one edge in a
                     // recess that catches light, and at 7% it caught none.
-                    Light.topShade(shape, radius: 3.5, width: 4.5, opacity: 0.95)
-                    Light.bottomCatch(shape, width: 1.8, opacity: 0.14)
+                    Light.topShade(shape, radius: 3.5, width: 4.5, color: Palette.bayShade)
+                    Light.bottomCatch(shape, width: 1.8, color: Palette.bayCatch)
 
-                    shape.stroke(isTarget ? Palette.accent.opacity(0.8) : Palette.hairline,
-                                 lineWidth: isTarget ? 4 : 2)
+                    shape.stroke(Palette.hairline, lineWidth: 2)
                 }
                 .clipShape(shape)
-                .animation(.mechanical, value: isTarget)
             }
+            // Above the reed, not under it. The wall of a bay is behind
+            // whatever is lying in it, and now that a reed covers its bay
+            // exactly, a highlight drawn back there is a highlight you cannot
+            // see on any bay that has a reed to drop onto.
+            .overlay {
+                if isTarget {
+                    shape.stroke(Palette.accent.opacity(0.8), lineWidth: 4)
+                        .clipShape(shape)
+                }
+            }
+            .animation(.mechanical, value: isTarget)
             .contentShape(Rectangle())
     }
 
@@ -1066,8 +1110,8 @@ struct SlotMoulding<Content: View>: View {
         Text(indexLabel(index + 1))
             .font(.numeric(13 * scale, weight: .bold))
             .tracking(1)
-            .foregroundStyle(Color.white.opacity(0.17))
-            .shadow(color: .black.opacity(0.9), radius: 0.5, y: -0.7)
+            .foregroundStyle(Palette.engravingInk)
+            .shadow(color: Palette.engravingRelief, radius: 0.5, y: -0.7)
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.leading, 16 * scale)
             .opacity(isTarget ? 0 : 1)

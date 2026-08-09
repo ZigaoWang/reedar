@@ -44,17 +44,36 @@ extension View {
 /// The light in this app comes from above, always. Every bevel, catch and
 /// shadow below is derived from that one fact, which is what keeps the
 /// mouldings looking machined rather than decorated.
+///
+/// None of the geometry here knows about the appearance, and that is the point:
+/// a recess is shaded along its near wall and catches light along its far one
+/// whether it is cut in black plastic or bone. What the two materials disagree
+/// about is only how hard they take the light, and that lives in `Palette` as a
+/// pair of colours. Everything below simply strokes whichever one it is given.
 enum Light {
     /// A ring of shadow that only shows along the top inside edge — the wall of
     /// a recess, lit from above.
+    ///
+    /// "Only" is doing real work here, and for a long time it wasn't true. This
+    /// strokes the whole shape and offsets the ring down by less than it blurs
+    /// it, so a band of shade survived along the sides and the bottom as well:
+    /// a recess lit from everywhere, which is a recess lit from nowhere. On
+    /// black plastic that band is black on black and nobody could see it. On
+    /// pale plastic it reads as a grey halo drawn all the way round whatever is
+    /// lying in the bay, which makes a bright reed look like it is floating in
+    /// smoke.
+    ///
+    /// The mask is the fix, not a smaller number: the wall that faces the light
+    /// is at the top, so the shade is at the top and gone by halfway down.
     static func topShade<S: Shape>(_ shape: S,
                                    radius: CGFloat = 2.5,
                                    width: CGFloat = 3,
-                                   opacity: Double = 0.8) -> some View {
+                                   color: Color = Palette.recessShade) -> some View {
         shape
-            .stroke(Color.black.opacity(opacity), lineWidth: width)
+            .stroke(color, lineWidth: width)
             .blur(radius: radius)
             .offset(y: width * 0.42)
+            .mask { wall(from: .top) }
             .clipShape(shape)
     }
 
@@ -62,26 +81,41 @@ enum Light {
     /// the far wall of a recess turns back up toward the light.
     static func bottomCatch<S: Shape>(_ shape: S,
                                       width: CGFloat = 1.2,
-                                      opacity: Double = 0.055) -> some View {
+                                      color: Color = Palette.recessCatch) -> some View {
         shape
-            .stroke(Color.white.opacity(opacity), lineWidth: width)
+            .stroke(color, lineWidth: width)
             .blur(radius: width * 0.5)
             .offset(y: -width)
+            .mask { wall(from: .bottom) }
             .clipShape(shape)
+    }
+
+    /// One wall of a recess and not the other three: solid at the edge the
+    /// light comes from, gone by the middle.
+    private static func wall(from edge: UnitPoint) -> some View {
+        LinearGradient(
+            stops: [
+                .init(color: .black, location: 0),
+                .init(color: .black, location: 0.18),
+                .init(color: .clear, location: 0.5),
+            ],
+            startPoint: edge,
+            endPoint: edge == .top ? .bottom : .top
+        )
     }
 
     /// A bevel on a raised surface: bright along the top edge, dark along the
     /// bottom, both inside the shape.
     static func bevel<S: Shape>(_ shape: S,
-                                highlight: Double = 0.09,
-                                shade: Double = 0.35) -> some View {
+                                highlight: Color = Palette.bevelHighlight,
+                                shade: Color = Palette.bevelShade) -> some View {
         ZStack {
             shape
-                .stroke(Color.white.opacity(highlight), lineWidth: 1.4)
+                .stroke(highlight, lineWidth: 1.4)
                 .blur(radius: 0.7)
                 .offset(y: 0.8)
             shape
-                .stroke(Color.black.opacity(shade), lineWidth: 1.4)
+                .stroke(shade, lineWidth: 1.4)
                 .blur(radius: 0.7)
                 .offset(y: -0.8)
         }
@@ -129,12 +163,18 @@ enum Texture {
 struct Grain: View {
     var opacity: Double = 0.035
 
+    /// Overlay noise reads much louder on a pale face than on a black one —
+    /// the same tile that says "moulded" on black ABS says "dirty" on bone.
+    /// Pulled back rather than switched off: a matte surface with no grain at
+    /// all is a filled rectangle in either material.
+    @Environment(\.colorScheme) private var scheme
+
     var body: some View {
         if let grain = Texture.grain {
             grain
                 .resizable(resizingMode: .tile)
                 .blendMode(.overlay)
-                .opacity(opacity)
+                .opacity(scheme == .light ? opacity * 0.25 : opacity)
                 .allowsHitTesting(false)
         }
     }

@@ -52,6 +52,11 @@ struct ReedShape: Shape {
     /// attempt did — it read as a spike between them rather than as a scoop.
     var thumbRelief: CGFloat = 0
 
+    /// The break on a moulded heel corner, shared by a bay and by the reed
+    /// lying in it. One number, because they are one outline — see the note on
+    /// `ReedView.shape`.
+    static let bayHeelRadius: CGFloat = 9
+
     /// A relief is far wider than it is deep — a scoop for a thumb, not a
     /// notch. Held at a fixed ratio so the one number above sets both.
     private static let reliefSpread: CGFloat = 5
@@ -193,11 +198,20 @@ struct ReedView: View {
     private let outline = Color(hex: 0x8C6A28)
     private let worn = Color(hex: 0x8A7346)
 
-    /// The heel is cut square, but a cut edge is never a perfect right angle
-    /// and a hard 90° corner nested inside a moulded bay pinches the clearance
-    /// at the corners to nothing. Five points reads as square and sits
-    /// concentric inside the bay's own nine.
-    private var shape: ReedShape { ReedShape(axis: axis, heelRadius: 5) }
+    /// The heel is cut square, but a cut edge is never a perfect right angle,
+    /// and the same break as the bay it lies in — see `ReedShape.bay`.
+    ///
+    /// It was five against the bay's nine, so that a reed inset a few points
+    /// inside its bay would sit concentric in it. That was the right number for
+    /// a reed with clearance around it and the wrong one the moment the
+    /// clearance went: two outlines of different radii, one drawn on top of the
+    /// other, leave a crescent of bay showing at all four corners — a ring that
+    /// no amount of shading can be tuned out of, because it is a shape
+    /// mismatch and not a shadow.
+    ///
+    /// One number, one outline. The reed and its bay are the same object seen
+    /// full and seen empty.
+    private var shape: ReedShape { ReedShape(axis: axis, heelRadius: ReedShape.bayHeelRadius) }
 
     var body: some View {
         GeometryReader { geo in
@@ -232,13 +246,19 @@ struct ReedView: View {
                 VampShape(axis: axis)
                     .stroke(outline.opacity(0.5), lineWidth: 0.75)
 
-                // Wear: only the vamp dulls. Tinting past the cut line put a
-                // hard edge across the bark and left it looking two-toned.
-                if wear > 0 {
-                    VampShape(axis: axis)
-                        .fill(worn.opacity(min(max(wear, 0), 1.2) * 0.4))
-                        .animation(.settle, value: wear)
-                }
+                // The vamp used to dull in proportion to `wear`, so a reed
+                // halfway through its life was drawn a little browner than a
+                // fresh one. It was too quiet to read as information and too
+                // visible to read as nothing: side by side in the case, one
+                // reed came out muddier than its neighbours and the only
+                // available conclusion was that something had gone wrong with
+                // the drawing.
+                //
+                // Every reed is now drawn as the same piece of cane. How far
+                // through its life it is, is said in words directly under its
+                // name — "Ready · 3.2h", "Play this next" — and again on its
+                // own page as a figure, a bar and a sentence. Three honest
+                // statements of it beat a fourth nobody can measure by eye.
 
                 if !stamp.isEmpty {
                     stampText(across: across)

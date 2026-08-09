@@ -14,6 +14,13 @@ struct ReedarApp: App {
         if arguments.contains("-skipIntro") {
             UserDefaults.standard.set(true, forKey: Intro.seenKey)
         }
+        // `-appearance light|dark|system`, for looking at both materials
+        // without tapping into Settings.
+        if let index = arguments.firstIndex(of: "-appearance"),
+           arguments.indices.contains(index + 1),
+           let appearance = Appearance(rawValue: arguments[index + 1]) {
+            UserDefaults.standard.set(appearance.rawValue, forKey: Appearance.key)
+        }
 
         // `-seedSampleData` fills an in-memory store with a believable
         // rotation, for screenshots and for poking at the UI in the simulator.

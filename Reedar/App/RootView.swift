@@ -16,6 +16,12 @@ struct RootView: View {
     /// business syncing to another device that has its own first launch to do.
     @AppStorage(Intro.seenKey) private var hasSeenIntro = false
 
+    /// Which material the case is moulded in. Also in `UserDefaults` rather
+    /// than the store: it is a fact about the room this device is being read
+    /// in, not about the player's reeds, and a phone on a dark stage and an
+    /// iPad on a lit stand should not have to agree about it.
+    @AppStorage(Appearance.key) private var appearance: Appearance = .dark
+
     @State private var showingWelcome = false
     /// Which of the welcome's two pages is showing.
     ///
@@ -35,8 +41,9 @@ struct RootView: View {
 
     var body: some View {
         CaseView(startAdding: $startAdding)
-            // One appearance, always. A reed case is black.
-            .preferredColorScheme(.dark)
+            // A reed case is black, which is what this ships set to — but the
+            // case is read in rooms, and the player owns which one.
+            .preferredColorScheme(appearance.colorScheme)
             .tint(Palette.accent)
             .task { Haptics.warmUp() }
             // Nothing here transforms the case, and nothing here transforms the
@@ -73,7 +80,7 @@ struct RootView: View {
                 } skip: {
                     finish(addReed: false)
                 }
-                .preferredColorScheme(.dark)
+                .preferredColorScheme(appearance.colorScheme)
                 .tint(Palette.accent)
             }
             // After the veil, not under it.
