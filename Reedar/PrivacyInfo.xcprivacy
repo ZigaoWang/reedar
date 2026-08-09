@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!-- Reedar collects nothing, sends nothing, and tracks nobody. There is no
+	     account, no analytics, no network call of any kind: what you log lives
+	     in a local SwiftData store, and syncs only through the player's own
+	     iCloud account when they have one. Every list below is empty, and each
+	     one is empty on purpose rather than by omission. -->
+	<key>NSPrivacyTracking</key>
+	<false/>
+	<key>NSPrivacyTrackingDomains</key>
+	<array/>
+	<key>NSPrivacyCollectedDataTypes</key>
+	<array/>
+	<!-- One required-reason API. `@AppStorage` is UserDefaults, and it holds
+	     exactly one flag: whether the introduction has been seen. CA92.1 is the
+	     reason for "access only to app-group-free data written by this app" —
+	     nothing is read that this app did not write, and nothing leaves the
+	     device. No file timestamps, no disk space, no boot time, no keyboard. -->
+	<key>NSPrivacyAccessedAPITypes</key>
+	<array>
+		<dict>
+			<key>NSPrivacyAccessedAPIType</key>
+			<string>NSPrivacyAccessedAPICategoryUserDefaults</string>
+			<key>NSPrivacyAccessedAPITypeReasons</key>
+			<array>
+				<string>CA92.1</string>
+			</array>
+		</dict>
+	</array>
+</dict>
+</plist>
