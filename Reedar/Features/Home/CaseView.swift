@@ -312,9 +312,15 @@ struct CaseView: View {
                 if arguments.contains("-openReed") || arguments.contains("-openStats") {
                     try? await Task.sleep(for: .milliseconds(400))
                 }
+                // The most-played reed, not the first or the newest. This
+                // opens the reed page for the App Store screenshots, and a
+                // reed two sessions old photographs as an empty log under an
+                // empty chart — which is a picture of the app having nothing
+                // to say.
                 if arguments.contains("-openReed"),
-                   let first = activeReeds.first(where: { $0.isBreakingIn }) ?? activeReeds.first {
-                    path.append(first)
+                   let best = activeReeds.first(where: \.isFavourite)
+                       ?? activeReeds.max(by: { $0.sessionCount < $1.sessionCount }) {
+                    path.append(best)
                 }
                 if arguments.contains("-openAdd") { addingTo = SlotTarget(index: 0) }
                 if arguments.contains("-openStats") { path.append(Destination.lifespan) }
@@ -322,6 +328,7 @@ struct CaseView: View {
                 // the way into About used to be.
                 if arguments.contains("-openAbout") { path.append(Destination.about) }
                 if arguments.contains("-openSettings") { path.append(Destination.settings) }
+                if arguments.contains("-openArchive") { path.append(Destination.archive) }
             }
         }
     }
