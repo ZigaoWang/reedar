@@ -52,6 +52,7 @@ final class Tour {
         case openAReed
         case logASession
         case retireIt
+        case archive
         case lifespan
         case done
 
@@ -63,6 +64,7 @@ final class Tour {
             case .dragAReed, .openAReed: .firstReed
             case .logASession: .logKey
             case .retireIt: .retireKey
+            case .archive: .archiveKey
             case .lifespan: .lifespanKey
             }
         }
@@ -71,7 +73,7 @@ final class Tour {
         var gesture: GestureHint.Kind? {
             switch self {
             case .dragAReed: .drag
-            case .openAReed, .logASession, .retireIt, .lifespan: .tap
+            case .openAReed, .logASession, .retireIt, .archive, .lifespan: .tap
             case .done: nil
             }
         }
@@ -83,6 +85,7 @@ final class Tour {
             case .openAReed: "hand.tap"
             case .logASession: "plus.circle"
             case .retireIt: "archivebox"
+            case .archive: "tray.full"
             case .lifespan: "chart.bar"
             case .done: "checkmark.circle"
             }
@@ -118,6 +121,7 @@ final class Tour {
             case .openAReed: "Open one"
             case .logASession: "Log what you play"
             case .retireIt: "Retire it when it's done"
+            case .archive: "Where finished reeds go"
             case .lifespan: "What your reeds last"
             case .done: "That's the whole app"
             }
@@ -138,8 +142,11 @@ final class Tour {
             case .retireIt:
                 "Tap the archive key. Retiring a finished reed is the moment "
                 + "the app learns something: a reed that lasted you 9 hours."
+            case .archive:
+                "That reed has left the case. Tap the archive key, top left, to "
+                + "see where it went — retired reeds keep every hour they did."
             case .lifespan:
-                "Go back to your case, then tap the chart key at the top. Every "
+                "Back in your case, tap the chart key at the top right. Every "
                 + "retired reed adds up there."
             case .done:
                 "The case, a reed, and the numbers behind it. Ready to put a "
@@ -155,6 +162,7 @@ final class Tour {
             case .openAReed: "This is the reed's own page \u{2014} its hours, its log, and what's left in it."
             case .logASession: "Every session you log wears the reed down a little."
             case .retireIt: "Retired reeds keep their hours. That's what the averages are made of."
+            case .archive: "Nothing is lost when you retire a reed \u{2014} it just moves out of the way."
             case .lifespan: "This fills in as you retire reeds \u{2014} by model, and by strength."
             case .done: ""
             }
@@ -179,6 +187,7 @@ final class Tour {
         case lifespanKey
         case logKey
         case retireKey
+        case archiveKey
 
         /// A reed is not a rectangle, and a box drawn round one in an app that
         /// draws the reed's outline everywhere else looks like a selection
@@ -322,13 +331,7 @@ struct TourOverlay: View {
     var spot: CGRect?
 
     var body: some View {
-        ZStack(alignment: .bottom) {
-            ring
-            card
-                .frame(maxHeight: .infinity, alignment: .bottom)
-                .padding(.bottom, 10)
-        }
-        .transition(.opacity)
+        ring.transition(.opacity)
     }
 
     @ViewBuilder private var ring: some View {
@@ -346,9 +349,10 @@ struct TourOverlay: View {
                 .frame(width: spot.width + 10, height: spot.height + 10)
                 .position(x: spot.midX, y: spot.midY)
                 .allowsHitTesting(false)
-                // Follows the thing it is pointing at, including while a finger
-                // is dragging it.
-                .animation(.spring(response: 0.28, dampingFraction: 0.9), value: spot)
+                // No animation on the position. The anchor already updates
+                // every frame while a reed is under a finger, so animating it
+                // as well makes the ring swim along behind the reed instead of
+                // being drawn on it.
                 .animation(.mechanical, value: tour.justDidIt)
         }
     }
@@ -359,8 +363,6 @@ struct TourOverlay: View {
             ? AnyShape(ReedShape(axis: .horizontalReversed))
             : AnyShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
     }
-
-    private var card: some View { TourCard(tour: tour) }
 
 }
 
@@ -379,64 +381,74 @@ struct TourCard: View {
     var inSheet = false
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 9) {
-            HStack(spacing: 9) {
-                Image(systemName: showsDone ? "checkmark.circle.fill" : tour.step.symbol)
-                    .font(.system(size: 15, weight: .semibold))
-                    .foregroundStyle(showsDone ? Palette.signalGreen : Palette.accent)
-                    .frame(width: 20)
-                Text(title)
-                    .font(.title(20))
-                    .foregroundStyle(Palette.ink)
-                Spacer(minLength: 8)
-                Text("\(tour.step.rawValue + 1) of \(Tour.Step.allCases.count)")
-                    .font(.numeric(11.5, weight: .medium))
-                    .foregroundStyle(Palette.inkTertiary)
-                lamps
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(spacing: 11) {
+                // The symbol in a disc, so the card has one fixed anchor point
+                // that doesn't move as the words change length.
+                Image(systemName: showsDone ? "checkmark" : tour.step.symbol)
+                    .font(.system(size: 14, weight: .bold))
+                    .foregroundStyle(Palette.onAccent)
+                    .frame(width: 30, height: 30)
+                    .background {
+                        Circle().fill(showsDone ? Palette.signalGreen : Palette.accent)
+                    }
+
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(showsDone ? "Done" : "Step \(tour.step.rawValue + 1) of \(Tour.Step.allCases.count)")
+                        .font(.micro(10.5))
+                        .tracking(0.8)
+                        .textCase(.uppercase)
+                        .foregroundStyle(showsDone ? Palette.signalGreen : Palette.inkTertiary)
+                    Text(title)
+                        .font(.title(19))
+                        .foregroundStyle(Palette.ink)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.85)
+                }
+
+                Spacer(minLength: 0)
             }
 
             Text(blurb)
-                .font(.copy(15))
-                .foregroundStyle(Palette.ink.opacity(0.92))
-                .lineSpacing(1.5)
+                .font(.copy(14.5))
+                .foregroundStyle(Palette.ink.opacity(0.9))
+                .lineSpacing(2)
                 .fixedSize(horizontal: false, vertical: true)
+                // Three lines' worth, whatever the step says. Without it the
+                // card grows and shrinks under your thumb every time the words
+                // change, which is most of what reads as glitchy.
+                .frame(minHeight: 62, alignment: .top)
                 .frame(maxWidth: .infinity, alignment: .leading)
 
             if tour.step == .done {
                 PrimaryKey(title: tour.step.forward, symbol: "plus") { tour.advance() }
-                    .padding(.top, 4)
                 Button("Not yet") { tour.skip() }
                     .font(.copy(13.5))
                     .foregroundStyle(Palette.inkSecondary)
                     .frame(maxWidth: .infinity)
             } else {
-                HStack(spacing: 12) {
+                HStack {
                     if !inSheet {
-                        Button("Skip tour") { tour.skip() }
-                            .font(.copy(13))
-                            .foregroundStyle(Palette.inkTertiary)
-                        Text("· practice reeds")
-                            .font(.copy(12))
+                        Button("End tour") { tour.skip() }
+                            .font(.copy(13.5))
                             .foregroundStyle(Palette.inkTertiary)
                     }
                     Spacer(minLength: 8)
-                    Button(inSheet ? "Skip this step" : tour.step.forward) {
+                    Button(inSheet ? "Skip this step" : "Skip this step") {
                         tour.advance()
                     }
                     .font(.copy(13.5, weight: .semibold))
                     .foregroundStyle(Palette.accent)
-                    .opacity(showsDone ? 0.25 : 1)
+                    .opacity(showsDone ? 0.2 : 1)
                     .disabled(showsDone)
                 }
-                .padding(.top, 5)
             }
         }
         .padding(18)
         .raised(depth: .high)
-        .shadow(color: .black.opacity(0.6), radius: 26, y: 12)
+        .shadow(color: .black.opacity(0.65), radius: 28, y: 14)
         .padding(.horizontal, Metrics.screenMargin)
         .column()
-        .animation(.settle, value: tour.step)
     }
 
     /// The tick only belongs where the deed was done: a sheet closing is what
@@ -451,15 +463,5 @@ struct TourCard: View {
         if showsDone { return tour.step.done }
         if inSheet, let hint = tour.step.sheetHint { return hint }
         return tour.step.blurb
-    }
-
-    private var lamps: some View {
-        HStack(spacing: 5) {
-            ForEach(Tour.Step.allCases, id: \.rawValue) { step in
-                LED(isOn: step.rawValue <= tour.step.rawValue, size: 5)
-            }
-        }
-        .animation(.mechanical, value: tour.step)
-        .accessibilityHidden(true)
     }
 }

@@ -3,6 +3,7 @@ import SwiftUI
 
 /// Every reed the player has finished with — the raw material behind the data.
 struct ArchiveView: View {
+    @Environment(Tour.self) private var tour: Tour?
     @Query(sort: \Reed.retiredAt, order: .reverse) private var reeds: [Reed]
 
     private var retired: [Reed] { reeds.filter(\.isRetired) }
@@ -26,6 +27,7 @@ struct ArchiveView: View {
         }
         .scrollIndicators(.hidden)
         .background { Backdrop() }
+        .onAppear { tour?.completed(.archive) }
         // The system's title, at the system's size, like every other screen.
         // This was a hand-rolled principal item at 12pt bold, which came out
         // noticeably smaller than Lifespan's next door — two conventions for

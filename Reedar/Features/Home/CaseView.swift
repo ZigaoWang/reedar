@@ -410,6 +410,7 @@ struct CaseView: View {
                 plateKey("archivebox", label: "Retired reeds", key: "r") {
                     path.append(Destination.archive)
                 }
+                .tourTarget(.archiveKey)
                 Spacer()
                 plateKey("chart.bar", label: "Lifespan data", key: "d") {
                     path.append(Destination.lifespan)

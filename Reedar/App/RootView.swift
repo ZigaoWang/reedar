@@ -70,6 +70,15 @@ struct RootView: View {
                 // bar — and rings the plate instead of the reed.
                 .ignoresSafeArea()
             }
+            // The card, on the other hand, keeps the safe area: in the layer
+            // above it sat under the home indicator with its last line cut off.
+            .overlay(alignment: .bottom) {
+                if tour.isRunning {
+                    TourCard(tour: tour)
+                        .padding(.bottom, 6)
+                        .transition(.move(edge: .bottom).combined(with: .opacity))
+                }
+            }
             // After the veil, not under it. Two things arriving over the case
             // at once is two things nobody watched.
             .fullScreenCover(isPresented: $showingWelcome) {
