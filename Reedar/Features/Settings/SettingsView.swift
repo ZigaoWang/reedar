@@ -1,14 +1,17 @@
 import SwiftUI
 
-/// Everything the player gets to decide.
+/// Everything the player gets to decide: what the case is moulded in, what
+/// it's trimmed with, whether it answers your hand, and whether to see the
+/// introduction again.
 ///
-/// Which is, for now, two things: the material the case is moulded in, and
-/// whether to see the introduction again. An app that shows you something once
-/// and then has no way back to it has taken a decision on your behalf.
+/// The last of those is why this screen existed before there was anything to
+/// put on it — an app that shows you something once and then has no way back
+/// to it has taken a decision on your behalf.
 struct SettingsView: View {
     @AppStorage(Intro.seenKey) private var hasSeenIntro = false
     @AppStorage(Appearance.key) private var appearance: Appearance = .dark
     @AppStorage(Accent.key) private var accent: Accent = .orange
+    @AppStorage(Haptics.key) private var haptics = true
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
@@ -16,6 +19,36 @@ struct SettingsView: View {
             VStack(alignment: .leading, spacing: 20) {
                 appearanceSection
                 accentSection
+
+                section("Feedback") {
+                    // A tick on the way on, nothing on the way off. Turning a
+                    // feedback setting on is the one moment where feeling the
+                    // thing you just enabled is the whole answer; turning it
+                    // off and getting a buzz for your trouble is the app
+                    // arguing with you.
+                    Toggle(isOn: $haptics.animation(.mechanical)) {
+                        HStack(spacing: 11) {
+                            Image(systemName: "hand.tap")
+                                .font(.system(size: 14, weight: .semibold))
+                                .foregroundStyle(Palette.inkSecondary)
+                                .frame(width: 22)
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("Haptics")
+                                    .font(.heading(15))
+                                    .foregroundStyle(Palette.ink)
+                                Text("A lid closing, a reed dropping into a slot")
+                                    .font(.copy(12))
+                                    .foregroundStyle(Palette.inkTertiary)
+                            }
+                        }
+                    }
+                    .tint(Palette.accent)
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 13)
+                    .onChange(of: haptics) { _, on in
+                        if on { Haptics.reedAdded() }
+                    }
+                }
 
                 section("Welcome") {
                     Button {

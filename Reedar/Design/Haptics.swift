@@ -60,11 +60,30 @@ final class Haptics {
         )
     }
 
+    // MARK: The switch
+
+    static let key = "haptics"
+
+    /// Whether the case answers your hand at all.
+    ///
+    /// Read here rather than at the call sites, and read on every play rather
+    /// than cached. There are ten of these scattered across the app and there
+    /// will be more; a flag checked in nine of them is a setting that does not
+    /// work, and the tenth is always the one somebody notices. Nothing that
+    /// asks for a haptic has to know the setting exists.
+    ///
+    /// Absent means on — this is how the app has always behaved, and an
+    /// unwritten default should not change that.
+    static var isEnabled: Bool {
+        UserDefaults.standard.object(forKey: key) as? Bool ?? true
+    }
+
     // MARK: Moments
 
     /// A session lands on a reed: a firm click with a short tail, like a
     /// toggle switch throwing.
     static func sessionLogged() {
+        guard isEnabled else { return }
         guard shared.engine != nil else {
             UINotificationFeedbackGenerator().notificationOccurred(.success)
             return
@@ -85,6 +104,7 @@ final class Haptics {
 
     /// A reed comes out of rotation: two soft thuds, a lid closing.
     static func reedRetired() {
+        guard isEnabled else { return }
         guard shared.engine != nil else {
             UIImpactFeedbackGenerator(style: .heavy).impactOccurred(intensity: 0.9)
             return
@@ -97,6 +117,7 @@ final class Haptics {
 
     /// A new reed drops into a slot.
     static func reedAdded() {
+        guard isEnabled else { return }
         guard shared.engine != nil else {
             UIImpactFeedbackGenerator(style: .medium).impactOccurred()
             return
@@ -123,6 +144,7 @@ final class Haptics {
     /// Everything else is placed against it, so the caller can hand over the
     /// one number that keeps the gesture in step with the animation.
     static func launched(landing: TimeInterval = 0.44) {
+        guard isEnabled else { return }
         guard shared.engine != nil else {
             let generator = UIImpactFeedbackGenerator(style: .heavy)
             generator.impactOccurred(intensity: 0.9)
@@ -196,6 +218,7 @@ final class Haptics {
 
     /// A reed being lifted out of the case.
     static func reedLifted() {
+        guard isEnabled else { return }
         UIImpactFeedbackGenerator(style: .soft).impactOccurred(intensity: 0.7)
     }
 
@@ -203,19 +226,23 @@ final class Haptics {
     /// lighter than a reed, because there is no cane in the way — the only tap
     /// in the case that used to return nothing at all.
     static func slotTapped() {
+        guard isEnabled else { return }
         UIImpactFeedbackGenerator(style: .rigid).impactOccurred(intensity: 0.55)
     }
 
     static func tick() {
+        guard isEnabled else { return }
         UISelectionFeedbackGenerator().selectionChanged()
     }
 
     static func warning() {
+        guard isEnabled else { return }
         UINotificationFeedbackGenerator().notificationOccurred(.warning)
     }
 
     /// Called at launch so the first haptic isn't the one that warms the engine.
     static func warmUp() {
+        guard isEnabled else { return }
         _ = shared
     }
 }
