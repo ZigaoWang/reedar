@@ -5,9 +5,16 @@ import SwiftUI
 /// Tap a reed to open it, tap any empty slot to put a reed there, press and
 /// hold a reed to pick it up and move it.
 struct CaseView: View {
+    /// Raised by the introduction when it ends on "Add your first reed". The
+    /// case owns the add flow, so the hand-off is a flag it lowers rather than
+    /// a sheet somebody else tries to present over it.
+    var startAdding: Binding<Bool> = .constant(false)
+
     @Query(sort: \Reed.addedAt, order: .reverse) private var allReeds: [Reed]
 
     @State private var addingTo: SlotTarget?
+    /// Dismissing the empty-case hint sticks, so it isn't argued with twice.
+    @AppStorage("hasDismissedCaseHint") private var hintDismissed = false
     /// Everything this screen can push, in one stack.
     ///
     /// It was a typed `[Reed]` path plus two `navigationDestination(isPresented:)`
@@ -26,6 +33,7 @@ struct CaseView: View {
     private enum Destination: Hashable {
         case lifespan
         case archive
+        case settings
         /// What this is, who made it, where to say something about it — and
         /// where any settings will go, when there are any.
         case about
@@ -254,7 +262,17 @@ struct CaseView: View {
                 case .lifespan: StatsView()
                 case .archive: ArchiveView()
                 case .about: AboutView()
+                case .settings: SettingsView()
                 }
+            }
+            // The introduction has finished and asked for a reed. It goes in
+            // the first free bay rather than a chosen one: the case is empty,
+            // every bay is the first bay, and being asked to pick one is a
+            // question with no wrong answer, which is the worst kind.
+            .onChange(of: startAdding.wrappedValue) { _, wants in
+                guard wants else { return }
+                startAdding.wrappedValue = false
+                addingTo = SlotTarget(index: slots.firstIndex { $0 == nil } ?? 0)
             }
             .task {
                 normalizeSlots()
@@ -309,9 +327,23 @@ struct CaseView: View {
     /// it would only look centred while both keys stayed the same width.
     private var headPlate: some View {
         ZStack {
-            VStack(spacing: 3) {
-                Button {
-                    path.append(Destination.about)
+            VStack(spacing: 0) {
+                // A menu, not a jump. The mark used to go straight to About,
+                // which was fine while About was the only thing behind it; now
+                // that there are settings to reach, the one pressable thing on
+                // the case has to offer both rather than hide one behind the
+                // other.
+                Menu {
+                    Button {
+                        path.append(Destination.settings)
+                    } label: {
+                        Label("Settings", systemImage: "slider.horizontal.3")
+                    }
+                    Button {
+                        path.append(Destination.about)
+                    } label: {
+                        Label("About Reedar", systemImage: "info.circle")
+                    }
                 } label: {
                     HStack(spacing: 9) {
                         // Struck to the wordmark's own line, so the mark and
@@ -355,15 +387,8 @@ struct CaseView: View {
                     .contentShape(Rectangle())
                 }
                 .buttonStyle(.sink)
-                .accessibilityLabel("About Reedar")
+                .accessibilityLabel("Reedar, settings and about")
 
-                if let plateHint {
-                    Text(plateHint)
-                        .font(.copy(12.5))
-                        .foregroundStyle(Palette.inkSecondary)
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.8)
-                }
             }
             // Clear of the keys at both ends, so a long line shortens rather
             // than running under them.
@@ -443,9 +468,73 @@ struct CaseView: View {
     /// It deliberately doesn't cover the carry. A line appearing while a reed
     /// is in the air would grow the plate, and the bed below it would shrink —
     /// every bay resizing under the reed you're holding.
-    private var plateHint: String? {
-        activeReeds.isEmpty ? "Tap any slot to add your first reed" : nil
+    /// Whether the empty case still needs telling what to do with itself.
+    private var showsHint: Bool { activeReeds.isEmpty && !hintDismissed }
+
+    /// The slip of paper that comes in the box.
+    ///
+    /// It was a line under the wordmark first, which was wrong twice over: it
+    /// made the plate's lockup a stack of two things, so the app's own name
+    /// rode up and down depending on how many reeds you owned, and a hint
+    /// belongs where the thing it describes is — the bed, not the lid.
+    ///
+    /// Then it was a dark rounded card with a coloured link in it, which is a
+    /// dialog from a different app. Nothing else in here is a dialog. Every
+    /// surface is either cut into the case or lying in it, so this is the one
+    /// thing a real case actually ships with a message on: the printed slip in
+    /// the bottom, on paper, in ink, which you take out and throw away the
+    /// first time you fill the case.
+    ///
+    /// So it's paper — cream stock, grained, dark ink, corners barely broken
+    /// because paper doesn't have a 16pt radius — resting on the mouldings with
+    /// a contact shadow under it. "Take this out" rather than "Got it", because
+    /// what you are doing is removing a piece of card from a box.
+    private var hintCard: some View {
+        VStack(spacing: 7) {
+            Text("Tap any slot\nto add your first reed")
+                .font(.heading(15))
+                .multilineTextAlignment(.center)
+                .foregroundStyle(Self.slipInk)
+
+            Button {
+                Haptics.slotTapped()
+                withAnimation(.settle) { hintDismissed = true }
+            } label: {
+                Text("Take this out")
+                    .font(.copy(12, weight: .semibold))
+                    .foregroundStyle(Self.slipInk.opacity(0.55))
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 5)
+                    .overlay {
+                        Capsule().strokeBorder(Self.slipInk.opacity(0.28), lineWidth: 1)
+                    }
+            }
+            .buttonStyle(.sink)
+        }
+        .padding(.horizontal, 26)
+        .padding(.vertical, 18)
+        .background {
+            let paper = RoundedRectangle(cornerRadius: 3, style: .continuous)
+            paper
+                .fill(Self.slipPaper)
+                .grained(0.06)
+                .overlay { paper.strokeBorder(.black.opacity(0.16), lineWidth: 0.5) }
+                .clipShape(paper)
+        }
+        // Lying on the mouldings, not floating over them: tight and low, the
+        // same shadow a reed in its bay casts.
+        .compositingGroup()
+        .shadow(color: .black.opacity(0.5), radius: 9, y: 4)
+        .transition(.opacity.combined(with: .scale(scale: 0.97)))
     }
+
+    /// Cheap uncoated card, the colour of the leaflet in a reed box.
+    private static let slipPaper = LinearGradient(
+        colors: [Color(hex: 0xEFE7D6), Color(hex: 0xE2D8C2)],
+        startPoint: .top, endPoint: .bottom
+    )
+    /// The same ink the reeds are printed in, because it's the same printer.
+    private static let slipInk = Color(hex: 0x4A3413)
 
     /// The reed that has rested longest, if there's a useful answer.
     private var nextUp: Reed? { Rotation.nextUp(among: activeReeds) }
@@ -480,6 +569,9 @@ struct CaseView: View {
             slotBed(columns: bed.columns)
                 .frame(maxHeight: bed.height)
                 .frame(maxHeight: .infinity)
+                .overlay {
+                    if showsHint { hintCard }
+                }
         }
         .padding(.horizontal, Self.caseInset)
         // The bays, and only the bays. `nil` on a phone, where the cap doesn't

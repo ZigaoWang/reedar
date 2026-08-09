@@ -9,8 +9,20 @@ struct RootView: View {
     /// background doesn't rebuild the view, and so doesn't show it again.
     @State private var showingVeil = true
 
+    /// Whether the introduction has been seen.
+    ///
+    /// Kept in `UserDefaults` rather than in the store on purpose: it is a fact
+    /// about this installation, not about the player's reeds, and it has no
+    /// business syncing to another device that has its own first launch to do.
+    @AppStorage(Intro.seenKey) private var hasSeenIntro = false
+
+    @State private var showingIntro = false
+    /// Set when the introduction ends on "Add your first reed", and read once
+    /// by the case, which owns the add flow.
+    @State private var startAdding = false
+
     var body: some View {
-        CaseView()
+        CaseView(startAdding: $startAdding)
             // One appearance, always. A reed case is black.
             .preferredColorScheme(.dark)
             .tint(Palette.accent)
@@ -32,7 +44,34 @@ struct RootView: View {
                     LaunchVeil(isPresented: $showingVeil)
                 }
             }
+            // After the veil, not under it. Two things arriving over the case at
+            // once is two things nobody watched.
+            .onChange(of: showingVeil) { _, veiled in
+                guard !veiled, !hasSeenIntro else { return }
+                showingIntro = true
+            }
+            .fullScreenCover(isPresented: $showingIntro) {
+                IntroView { addReed in
+                    hasSeenIntro = true
+                    showingIntro = false
+                    startAdding = addReed
+                }
+            }
+            .task {
+                // Seeing it again on demand, from Settings or the simulator —
+                // and getting past it, for looking at a first-run case that
+                // still has its slip of paper in it.
+                let arguments = ProcessInfo.processInfo.arguments
+                if arguments.contains("-resetIntro") { hasSeenIntro = false }
+                if arguments.contains("-skipIntro") { hasSeenIntro = true }
+            }
     }
+}
+
+/// Where the one preference lives, named once so the view that writes it and
+/// the screen that offers to show it again can't disagree about the spelling.
+enum Intro {
+    static let seenKey = "hasSeenIntro"
 }
 
 #Preview {
