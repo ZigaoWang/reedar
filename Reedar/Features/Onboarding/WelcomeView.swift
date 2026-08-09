@@ -25,65 +25,154 @@ struct WelcomeView: View {
     enum Page { case hello, what }
 
     var body: some View {
-        // One reader for the whole screen, because both pages are laid out in
-        // fractions of it rather than in points. A fixed inset that is a gap on
-        // a Pro Max is a third of an SE.
-        GeometryReader { geo in
-            ZStack(alignment: .bottom) {
-                Backdrop()
-
-                if page == .hello {
-                    hero(in: geo.size)
-                        .frame(width: geo.size.width, height: geo.size.height)
-
-                    // The reeds run the whole height, so the words need their
-                    // own ground to stand on.
-                    //
-                    // Measured up from the bottom in points, not as a fraction
-                    // of the screen: the words are the same height in points on
-                    // every phone, so a fraction that is a tight band under a
-                    // Pro Max's block leaves an SE's heading sitting on cane.
-                    scrim(for: geo.size.height)
-                        .allowsHitTesting(false)
+        // Two readers. The outer one sits inside the safe area purely to be
+        // told where it is — a view that ignores the safe area is told its
+        // insets are zero and can't ask. The inner one ignores it and so is
+        // given the whole screen, which is what everything here is measured
+        // from: both pages are laid out in fractions of the screen, because a
+        // fixed inset that is a gap on a Pro Max is a third of an SE.
+        GeometryReader { outer in
+            GeometryReader { geo in
+                ZStack {
+                    Backdrop()
+                    pages(in: geo.size, topInset: outer.safeAreaInsets.top)
                 }
-
-                VStack(spacing: 0) {
-                    // The case is part of the block, not a picture floating
-                    // behind it.
-                    //
-                    // It used to be its own full-screen layer, hung from the
-                    // top by a fraction — which meant the gap between it and
-                    // the words was whatever was left over, and on an iPad that
-                    // was a void. Set here it keeps one measured gap on every
-                    // screen, takes the column's width rather than a phone's,
-                    // and the slack collects above it where slack belongs.
-                    if page == .what {
-                        theCase
-                            .frame(maxHeight: geo.size.height * 0.40)
-                            // The gap under the case is what lifts it: the
-                            // block is anchored to the bottom, so padding here
-                            // pushes the case up the screen and leaves the
-                            // words where they are.
-                            .padding(.bottom, geo.size.height * 0.11)
-                    }
-
-                    words
-                    footer.padding(.top, 20)
-                }
-                .padding(.horizontal, Metrics.screenMargin)
-                // Near the glass, not on it. The words used to respect the
-                // bottom safe area, which held the key a home indicator's
-                // height clear of the edge — correct for a screen you scroll,
-                // and too timid for the one screen that is a poster. This is
-                // the other side of that: close enough to be the last thing on
-                // the page, far enough not to look like it is falling off it.
-                .padding(.bottom, 46)
-                .column()
+                .frame(width: geo.size.width, height: geo.size.height)
             }
-            .frame(width: geo.size.width, height: geo.size.height)
+            .ignoresSafeArea()
         }
-        .ignoresSafeArea()
         .background { Backdrop() }
+    }
+
+    /// Both pages, side by side, and the screen is a window onto one of them.
+    ///
+    /// Not a view that is swapped for another with a transition. That was the
+    /// first attempt and it had a fault you could only see mid-slide: SwiftUI
+    /// re-evaluates the outgoing view while it leaves, so for a few frames the
+    /// page on its way out was drawing the page that was arriving, and you got
+    /// two copies of the same screen passing each other. Laid out side by side
+    /// there is nothing to swap and nothing to re-evaluate — the only thing
+    /// that changes is which half you are looking at, and the direction takes
+    /// care of itself in both directions.
+    private func pages(in size: CGSize, topInset: CGFloat) -> some View {
+        HStack(spacing: 0) {
+            page(.hello, in: size, topInset: topInset)
+            page(.what, in: size, topInset: topInset)
+        }
+        .frame(width: size.width * 2, alignment: .leading)
+        .offset(x: page == .hello ? 0 : -size.width)
+        // Pinned back to one screen's width and clipped: without it the pair is
+        // a child twice as wide as the phone, and a child that size drags the
+        // layout of everything beside it out with it.
+        .frame(width: size.width, alignment: .leading)
+        .clipped()
+    }
+
+    private func turn(to next: Page) {
+        Haptics.tick()
+        // Even at both ends and over in under half a second: long enough not to
+        // be a cut, short enough that nobody waits for it.
+        withAnimation(.easeInOut(duration: 0.4)) { page = next }
+    }
+
+    @ViewBuilder
+    private func page(_ page: Page, in size: CGSize,
+                      topInset: CGFloat) -> some View {
+        ZStack(alignment: .bottom) {
+            // Each page carries its own ground now that the two of them sit
+            // side by side. Sharing one behind both left the second page
+            // transparent, and what showed through was the first page's reeds.
+            Backdrop()
+
+            if page == .hello {
+                hero(in: size)
+                    .frame(width: size.width, height: size.height)
+                    // Flattened to a single picture.
+                    //
+                    // The field is around eighty views of gradient and type,
+                    // and the page change slides the whole thing across the
+                    // screen — which, live, is eighty things to lay out and
+                    // draw every frame of the slide, and it showed. Drawn once
+                    // into one layer, the slide moves a picture. The field
+                    // never changes, so there is nothing lost by fixing it.
+                    .drawingGroup()
+
+                // The reeds run the whole height, so the words need their own
+                // ground to stand on.
+                scrim(for: size.height)
+                    .allowsHitTesting(false)
+            }
+
+            VStack(spacing: 0) {
+                // The case is part of the block, not a picture floating behind
+                // it.
+                //
+                // It used to be its own full-screen layer, hung from the top by
+                // a fraction — which meant the gap between it and the words was
+                // whatever was left over, and on an iPad that was a void. Set
+                // here it keeps one measured gap on every screen, takes the
+                // column's width rather than a phone's, and the slack collects
+                // above it where slack belongs.
+                if page == .what {
+                    theCase
+                        .frame(maxHeight: size.height * 0.40)
+                        // The gap under the case is what lifts it: the block is
+                        // anchored to the bottom, so padding here pushes the
+                        // case up the screen and leaves the words where they
+                        // are.
+                        .padding(.bottom, size.height * 0.11)
+                }
+
+                words(for: page)
+                footer(for: page).padding(.top, 20)
+            }
+            .padding(.horizontal, Metrics.screenMargin)
+            // Near the glass, not on it. The words used to respect the bottom
+            // safe area, which held the key a home indicator's height clear of
+            // the edge — correct for a screen you scroll, and too timid for the
+            // one screen that is a poster. This is the other side of that:
+            // close enough to be the last thing on the page, far enough not to
+            // look like it is falling off it.
+            .padding(.bottom, 46)
+            .column()
+
+            if page == .what {
+                bar(topInset: topInset)
+            }
+        }
+        .frame(width: size.width, height: size.height)
+        // A row of reeds is several screens long and runs off both edges. Off
+        // the edge of the *screen* is the point; off the edge of the page and
+        // into the one parked beside it is not, and that is what it did.
+        .clipped()
+    }
+
+    /// The second page's two ways out: back to the first, or past the lot.
+    ///
+    /// Both at the top, where a screen's escapes belong, and both quiet. They
+    /// used to be a second key under the first, which pushed the orange one
+    /// 40pt up the page — so tapping through moved the very thing you had just
+    /// pressed. Up here the key lands in the same place on both pages.
+    private func bar(topInset: CGFloat) -> some View {
+        HStack {
+            BareToolbarButton(symbol: "chevron.left", label: "Back") {
+                turn(to: .hello)
+            }
+
+            Spacer()
+
+            Button("Skip") { skip() }
+                .font(.heading(14))
+                .foregroundStyle(Palette.ink)
+                .padding(.horizontal, 14)
+                .frame(height: 34)
+                .background(Capsule().fill(Palette.surfaceRaised))
+                .overlay(Capsule().strokeBorder(Palette.hairline, lineWidth: 1))
+                .buttonStyle(.plain)
+        }
+        .padding(.horizontal, Metrics.screenMargin)
+        .padding(.top, topInset)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
     }
 
     /// The ground the words stand on: one fade across the full width, tight
@@ -134,14 +223,23 @@ struct WelcomeView: View {
         // and a zero-length reed is a zero pitch, which is a division by zero
         // and a count of NaN reeds.
         let height = max(size.height, 1)
-        // Struck from the shorter side, not the height.
+        // Struck from the shorter side, and not in step with it.
         //
         // Off the height, seven rows is seven rows whatever the screen — which
         // on an iPad is a field of reeds and on a phone is a close-up of three.
-        // The shorter side is what "how big does this feel" actually tracks, and
-        // it is the same number in both orientations, so a phone gets a field
-        // too and an iPad doesn't change its mind when you turn it.
-        let length = 0.8 * max(min(size.width, height), 1)
+        // The shorter side is what "how big does this feel" actually tracks,
+        // and it is the same number in both orientations, so an iPad doesn't
+        // change its mind when you turn it.
+        //
+        // But straight off the shorter side, an iPad gets reeds twice a phone's
+        // and four rows of them. The power is what stops that: the screen grows
+        // and the reeds grow with it, only slower, so a bigger screen holds
+        // more of them rather than the same few blown up. Not much slower —
+        // past a point you stop reading a field of reeds and start reading a
+        // pattern, and a pattern that dense is unpleasant to look at.
+        let phone: CGFloat = 440
+        let ruler = max(min(size.width, height), 1)
+        let length = 0.8 * phone * pow(ruler / phone, 0.7)
         let depth = length / Metrics.reedLyingAspect
         // Vertical spacing, not perpendicular: the rows are stacked straight
         // down, so a reed of thickness `depth` at 25° needs `depth / cos 25°`
@@ -233,7 +331,7 @@ struct WelcomeView: View {
     /// Ranged left, both pages. Centred, the sentence under a big heading sets
     /// as a diamond and every line begins somewhere new; against a left margin
     /// the eye has one place to return to, which is what makes a poster read.
-    @ViewBuilder private var words: some View {
+    @ViewBuilder private func words(for page: Page) -> some View {
         switch page {
         case .hello:
             VStack(alignment: .leading, spacing: 13) {
@@ -286,23 +384,13 @@ struct WelcomeView: View {
     /// a way past belongs, because that is the page that ends in doing
     /// something — and it is set small and quiet underneath, since it is the
     /// answer nobody is being encouraged to give.
-    private var footer: some View {
-        VStack(spacing: 12) {
-            PrimaryKey(title: page == .hello ? "What is it?" : "Add my first reed",
-                       symbol: page == .hello ? nil : "plus") {
-                if page == .hello {
-                    Haptics.tick()
-                    page = .what
-                } else {
-                    begin()
-                }
-            }
-
-            if page == .what {
-                Button("Have a look round first") { skip() }
-                    .font(.copy(14))
-                    .foregroundStyle(Palette.inkSecondary)
-                    .padding(.vertical, 4)
+    private func footer(for page: Page) -> some View {
+        PrimaryKey(title: page == .hello ? "What is it?" : "Add my first reed",
+                   symbol: page == .hello ? nil : "plus") {
+            if page == .hello {
+                turn(to: .what)
+            } else {
+                begin()
             }
         }
     }
