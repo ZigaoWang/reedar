@@ -21,7 +21,19 @@ enum Palette {
 
     static let ink = Color(hex: 0xF6F6F4)
     static let inkSecondary = Color(hex: 0x9E9EA4)
-    static let inkTertiary = Color(hex: 0x646469)
+
+    /// The quietest ink: versions, captions, chevrons, the second half of a
+    /// row that already said the important part.
+    ///
+    /// It was 0x646469, which measured 2.86 : 1 against a raised panel — under
+    /// half the 4.5 : 1 that normal-sized text is meant to hold, and it carries
+    /// real sentences ("Faded means fewer than 3 reeds so far"). Quiet is a
+    /// judgement about hierarchy; unreadable is a judgement about eyesight, and
+    /// this had crossed from one into the other.
+    ///
+    /// 0x8A8A90 clears 4.5 : 1 on every surface in the app with a little in
+    /// hand, and is still plainly the third voice on the screen.
+    static let inkTertiary = Color(hex: 0x8A8A90)
 
     // MARK: Accent
 
