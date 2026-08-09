@@ -227,7 +227,7 @@ final class Tour {
     func completed(_ step: Step) {
         guard isRunning, step == self.step, !done.contains(step) else { return }
         Haptics.reedAdded()
-        withAnimation(.settle) { done.insert(step) }
+        withAnimation(.settle) { _ = done.insert(step) }
     }
 
     /// Whether the tour is standing on this step right now.
