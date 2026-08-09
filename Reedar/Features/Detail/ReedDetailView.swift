@@ -24,6 +24,7 @@ struct ReedDetailView: View {
     }
 
     @Environment(\.horizontalSizeClass) private var widthClass
+    @Environment(Tour.self) private var tour: Tour?
     private var isWide: Bool { widthClass == .regular }
 
     /// One column on a phone; two where there's room for two.
@@ -114,6 +115,16 @@ struct ReedDetailView: View {
                         .foregroundStyle(Palette.ink)
                 }
             }
+        }
+        // Opening a reed, opening the log, opening the retire sheet: the
+        // three things the tour asks for on this screen, each reported the
+        // moment it happens rather than when a Next key is pressed.
+        .onAppear { tour?.completed(.openAReed) }
+        .onChange(of: isLogging) { _, logging in
+            if logging { tour?.completed(.logASession) }
+        }
+        .onChange(of: isRetiring) { _, retiring in
+            if retiring { tour?.completed(.retireIt) }
         }
         .sheet(isPresented: $isLogging) { LogSessionView(reed: reed) }
         .task {

@@ -50,6 +50,8 @@ struct CaseView: View {
     /// threshold in points had to be guessed, and guessed wrong — a 6.9" phone
     /// is 440pt wide and wants every one of them.
     @Environment(\.horizontalSizeClass) private var widthClass
+    /// Present only while onboarding is running — see `Tour`.
+    @Environment(Tour.self) private var tour: Tour?
 
     private static let slotCount = 8
     private static let slotGap: CGFloat = 8
@@ -903,6 +905,9 @@ struct CaseView: View {
             }
         }
         Haptics.reedAdded()
+        // The tour's "move a reed" step ends when a reed actually moves,
+        // however it was moved.
+        tour?.completed(.dragAReed)
     }
 
     /// Writes the laid-out order back to the reeds, so positions stay stable

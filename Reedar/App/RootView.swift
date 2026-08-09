@@ -20,6 +20,8 @@ struct RootView: View {
     @AppStorage(Intro.seenKey) private var hasSeenIntro = false
 
     @State private var tour = Tour()
+    /// The one screen in onboarding that is a screen. See `WelcomeView`.
+    @State private var showingWelcome = false
     /// Set when the tour ends on "Add my first reed", and read once by the
     /// case, which owns the add flow.
     @State private var startAdding = false
@@ -68,17 +70,40 @@ struct RootView: View {
             }
             // After the veil, not under it. Two things arriving over the case
             // at once is two things nobody watched.
+            .fullScreenCover(isPresented: $showingWelcome) {
+                WelcomeView {
+                    showingWelcome = false
+                    withAnimation(.settle) { tour.isRunning = true }
+                } skip: {
+                    showingWelcome = false
+                    finishOnboarding(addReed: false)
+                }
+                .preferredColorScheme(.dark)
+                .tint(Palette.accent)
+            }
             .onChange(of: showingVeil) { _, veiled in
                 guard !veiled, !hasSeenIntro, isDemo else { return }
-                withAnimation(.settle) { tour.isRunning = true }
+                // `-tourStep` goes straight to the tour, past the welcome, for
+                // looking at one step of it.
+                if ProcessInfo.processInfo.arguments.contains("-tourStep") {
+                    tour.isRunning = true
+                } else {
+                    showingWelcome = true
+                }
             }
             // Ending the tour is what puts the player's own store back: see
             // `ReedarApp`, which is watching this same flag.
             .onChange(of: tour.isRunning) { _, running in
                 guard !running, !hasSeenIntro else { return }
-                startAdding = tour.wantsFirstReed
-                hasSeenIntro = true
+                finishOnboarding(addReed: tour.wantsFirstReed)
             }
+    }
+
+    /// Hands the app back to the player: their own store returns, and with it
+    /// an empty case — so if they asked for a reed, the add flow opens on it.
+    private func finishOnboarding(addReed: Bool) {
+        startAdding = addReed
+        hasSeenIntro = true
     }
 }
 

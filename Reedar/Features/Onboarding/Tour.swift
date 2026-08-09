@@ -26,16 +26,18 @@ final class Tour {
               arguments.indices.contains(flag + 1),
               let number = Int(arguments[flag + 1]),
               let step = Step(rawValue: number - 1)
-        else { return .welcome }
+        else { return .dragAReed }
         return step
     }()
     /// Whether the tour is running at all.
     var isRunning = false
     /// Raised on the last step when the player asks to add a reed for real.
     var wantsFirstReed = false
+    /// True for the moment between doing the thing and being shown the next
+    /// step, so the card can say so instead of silently swapping its words.
+    var justDidIt = false
 
     enum Step: Int, CaseIterable {
-        case welcome
         case dragAReed
         case openAReed
         case logASession
@@ -47,7 +49,7 @@ final class Tour {
         /// the middle of the screen and talks about the app as a whole.
         var target: Target? {
             switch self {
-            case .welcome, .done: nil
+            case .done: nil
             case .dragAReed, .openAReed: .firstReed
             case .logASession: .logKey
             case .retireIt: .retireKey
@@ -57,7 +59,6 @@ final class Tour {
 
         var title: String {
             switch self {
-            case .welcome: "Have a look round"
             case .dragAReed: "Move a reed"
             case .openAReed: "Open one"
             case .logASession: "Log what you play"
@@ -69,36 +70,50 @@ final class Tour {
 
         var blurb: String {
             switch self {
-            case .welcome:
-                "There are a few reeds in this case so you can try things out. "
-                + "None of them are yours — they go when the tour does."
             case .dragAReed:
-                "Press a reed and drag it up or down. The others shuffle aside "
-                + "to make room. Go on, try it."
+                "Press the reed above and drag it up or down. The others shuffle "
+                + "aside to make room."
             case .openAReed:
-                "Tap a reed to open it. Everything you do happens to a reed, so "
-                + "you pick one up first."
+                "Now tap it. Everything you do happens to a reed, so you pick "
+                + "one up first."
             case .logASession:
-                "How long you played and what it was. A rehearsal isn't two "
-                + "hours of wear, so Reedar counts the part you spent blowing."
+                "Tap Log session. How long you played, and what it was — a "
+                + "rehearsal isn\u{2019}t two hours of wear, so Reedar counts the "
+                + "part you spent blowing."
             case .retireIt:
-                "When a reed is finished, retire it. That is the moment the app "
-                + "learns something — a reed that lasted you 9 hours."
+                "Tap the archive key. Retiring a finished reed is the moment "
+                + "the app learns something: a reed that lasted you 9 hours."
             case .lifespan:
-                "Every retired reed adds up here: how long each model really "
-                + "lasts you, by brand and by strength."
+                "Go back to your case, then tap the chart key at the top. Every "
+                + "retired reed adds up there."
             case .done:
                 "The case, a reed, and the numbers behind it. Ready to put a "
                 + "real one in?"
             }
         }
 
-        /// The word on the key that moves on.
+        /// What the app says the moment you do it — the confirmation that the
+        /// step was the thing you just did, not a coincidence.
+        var done: String {
+            switch self {
+            case .dragAReed: "The reeds shuffled aside to make room for it."
+            case .openAReed: "This is the reed's own page \u{2014} its hours, its log, and what's left in it."
+            case .logASession: "Every session you log wears the reed down a little."
+            case .retireIt: "Retired reeds keep their hours. That's what the averages are made of."
+            case .lifespan: "This fills in as you retire reeds \u{2014} by model, and by strength."
+            case .done: ""
+            }
+        }
+
+        /// The word on the key.
+        ///
+        /// "Skip this" rather than "Next" for every step the app can detect
+        /// for itself: the way forward is doing the thing, and the key is for
+        /// people who would rather not.
         var forward: String {
             switch self {
-            case .welcome: "Show me"
             case .done: "Add my first reed"
-            default: "Next"
+            default: "Skip this"
             }
         }
     }
@@ -111,8 +126,32 @@ final class Tour {
         case retireKey
     }
 
-    func advance() {
-        Haptics.tick()
+    /// The player did the thing the step asked for.
+    ///
+    /// Only the step that is currently being shown can be completed by it, so
+    /// opening a reed on the "move a reed" step doesn't skip a beat, and going
+    /// back to a screen you have already been shown doesn't wind the tour
+    /// backwards. Everything else is ignored on purpose.
+    ///
+    /// The pause is the point. A step that vanishes the instant you touch the
+    /// thing it is pointing at reads as a glitch — you get no moment of having
+    /// done it right. Long enough to see the reed land, short enough not to
+    /// wait on it.
+    func completed(_ step: Step) {
+        guard isRunning, step == self.step, !justDidIt else { return }
+        Haptics.reedAdded()
+        withAnimation(.mechanical) { justDidIt = true }
+        Task { @MainActor in
+            try? await Task.sleep(for: .milliseconds(900))
+            guard isRunning, step == self.step else { return }
+            withAnimation(.settle) { justDidIt = false }
+            advance(quietly: true)
+        }
+    }
+
+    func advance(quietly: Bool = false) {
+        if !quietly { Haptics.tick() }
+        justDidIt = false
         guard let next = Step(rawValue: step.rawValue + 1) else {
             wantsFirstReed = true
             isRunning = false
@@ -159,13 +198,19 @@ extension View {
 
 // MARK: - What you see
 
-/// The dimming, the ring and the card.
+/// The ring and the card. No scrim.
 ///
-/// The dimming is a shape with a hole cut in it — even-odd fill rather than a
-/// blur or a mask, so the thing being pointed at is lit by the app's own
-/// screen rather than by anything drawn on top of it. It takes no touches at
-/// all: the tour describes gestures and you have to be able to make them while
-/// it is still on screen, or the instruction is theatre.
+/// It dimmed the whole app at first, with a hole cut out for whatever was being
+/// pointed at. Two things were wrong with that. The app went black, which is a
+/// strange thing to do to somebody you are trying to show around — the tour is
+/// meant to be about the app, not draped over it. And the hole was a rectangle
+/// cut where the target *was*: drag the reed the step is asking you to drag and
+/// it slides straight out of its own spotlight, leaving a bright empty hole and
+/// a dark reed.
+///
+/// So the app stays lit and the ring follows. It is anchored to the target's own
+/// bounds, which move with it, so a reed under your finger stays ringed the
+/// whole way down the case.
 struct TourOverlay: View {
     @Bindable var tour: Tour
     /// Where the current step's target is, if it is on this screen.
@@ -173,74 +218,94 @@ struct TourOverlay: View {
 
     var body: some View {
         ZStack {
-            dimming
             ring
             card
         }
         .transition(.opacity)
     }
 
-    private var dimming: some View {
-        Canvas { context, size in
-            var shape = Path(CGRect(origin: .zero, size: size))
-            if let spot {
-                shape.addRoundedRect(in: spot.insetBy(dx: -6, dy: -6),
-                                     cornerSize: CGSize(width: 14, height: 14))
-            }
-            context.fill(shape, with: .color(.black.opacity(0.72)), style: FillStyle(eoFill: true))
-        }
-        // The whole point: the app underneath stays usable while the tour talks
-        // about it.
-        .allowsHitTesting(false)
-    }
-
     @ViewBuilder private var ring: some View {
         if let spot {
             RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .strokeBorder(Palette.accent.opacity(0.9), lineWidth: 2)
+                .strokeBorder(tour.justDidIt ? Palette.signalGreen : Palette.accent,
+                              lineWidth: 2.5)
+                .shadow(color: (tour.justDidIt ? Palette.signalGreen : Palette.accent)
+                    .opacity(0.5), radius: 10)
                 .frame(width: spot.width + 12, height: spot.height + 12)
                 .position(x: spot.midX, y: spot.midY)
                 .allowsHitTesting(false)
-                .animation(.settle, value: spot)
+                // Follows the thing it is pointing at, including while a finger
+                // is dragging it.
+                .animation(.spring(response: 0.28, dampingFraction: 0.9), value: spot)
+                .animation(.mechanical, value: tour.justDidIt)
         }
     }
 
-    /// The words, on the far side of the screen from whatever is being pointed
-    /// at, so the card never covers its own subject.
     private var card: some View {
-        GeometryReader { geo in
-            VStack(alignment: .leading, spacing: 9) {
-                Text(tour.step.title)
+        VStack(alignment: .leading, spacing: 9) {
+            HStack(spacing: 8) {
+                if tour.justDidIt {
+                    Image(systemName: "checkmark.circle.fill")
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundStyle(Palette.signalGreen)
+                }
+                Text(tour.justDidIt ? "That's it" : tour.step.title)
                     .font(.heading(17))
                     .foregroundStyle(Palette.ink)
-                Text(tour.step.blurb)
+                Spacer(minLength: 8)
+                lamps
+            }
+
+            Text(tour.justDidIt ? tour.step.done : tour.step.blurb)
+                .font(.copy(13.5))
+                .foregroundStyle(Palette.inkSecondary)
+                .fixedSize(horizontal: false, vertical: true)
+                .frame(maxWidth: .infinity, alignment: .leading)
+
+            // The loud key only where pressing one is the actual next move.
+            // On every other step the way on is to go and do the thing being
+            // pointed at, and an orange key saying "Skip this" next to that
+            // instruction is the app shouting over itself.
+            if tour.step == .done {
+                PrimaryKey(title: tour.step.forward, symbol: "plus") { tour.advance() }
+                    .padding(.top, 4)
+                Button("Not yet") { tour.skip() }
                     .font(.copy(13.5))
                     .foregroundStyle(Palette.inkSecondary)
-                    .fixedSize(horizontal: false, vertical: true)
-
+                    .frame(maxWidth: .infinity)
+            } else {
                 HStack(spacing: 12) {
                     Button("Skip tour") { tour.skip() }
                         .font(.copy(13))
                         .foregroundStyle(Palette.inkTertiary)
                     Spacer(minLength: 8)
-                    PrimaryKey(title: tour.step.forward) { tour.advance() }
-                        .frame(maxWidth: 190)
+                    Button(tour.step.forward) { tour.advance() }
+                        .font(.copy(13.5, weight: .semibold))
+                        .foregroundStyle(Palette.accent)
+                        .opacity(tour.justDidIt ? 0.25 : 1)
+                        .disabled(tour.justDidIt)
                 }
-                .padding(.top, 3)
+                .padding(.top, 5)
             }
-            .padding(16)
-            .raised(depth: .high)
-            .shadow(color: .black.opacity(0.6), radius: 26, y: 12)
-            .padding(.horizontal, Metrics.screenMargin)
-            .frame(maxWidth: .infinity, maxHeight: .infinity,
-                   alignment: cardIsHigh(in: geo.size) ? .top : .bottom)
-            .padding(.vertical, 54)
         }
+        .padding(16)
+        .raised(depth: .high)
+        .shadow(color: .black.opacity(0.6), radius: 26, y: 12)
+        .padding(.horizontal, Metrics.screenMargin)
+        .column()
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
+        .padding(.bottom, 10)
+        .animation(.settle, value: tour.step)
     }
 
-    /// Above the target if the target is in the lower half, below it if not.
-    private func cardIsHigh(in size: CGSize) -> Bool {
-        guard let spot else { return false }
-        return spot.midY > size.height * 0.55
+    /// How far along, in the app's own lamps rather than "3 of 5".
+    private var lamps: some View {
+        HStack(spacing: 5) {
+            ForEach(Tour.Step.allCases, id: \.rawValue) { step in
+                LED(isOn: step.rawValue <= tour.step.rawValue, size: 5)
+            }
+        }
+        .animation(.mechanical, value: tour.step)
+        .accessibilityLabel("Step \(tour.step.rawValue + 1) of \(Tour.Step.allCases.count)")
     }
 }
