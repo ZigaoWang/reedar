@@ -8,6 +8,7 @@ struct RetireReedView: View {
     var onRetired: () -> Void
 
     @Environment(\.dismiss) private var dismiss
+    @Environment(Tour.self) private var tour: Tour?
     @Query private var allReeds: [Reed]
 
     @State private var reason: RetireReason = .wentFlat
@@ -34,6 +35,9 @@ struct RetireReedView: View {
             }
             .scrollIndicators(.hidden)
             .background { Backdrop() }
+            .safeAreaInset(edge: .top) {
+                if let hint = tour?.hint(for: .retireIt) { TourHint(text: hint) }
+            }
             .navigationTitle("Retire")
             .navigationBarTitleDisplayMode(.inline)
             .toolbarBackground(.hidden, for: .navigationBar)

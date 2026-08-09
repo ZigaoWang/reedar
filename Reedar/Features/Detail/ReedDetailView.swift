@@ -120,11 +120,14 @@ struct ReedDetailView: View {
         // three things the tour asks for on this screen, each reported the
         // moment it happens rather than when a Next key is pressed.
         .onAppear { tour?.completed(.openAReed) }
-        .onChange(of: isLogging) { _, logging in
-            if logging { tour?.completed(.logASession) }
+        // On the way *out* of each sheet, not into it. Completing on open
+        // would move the tour on while the sheet was still up, taking the
+        // guidance off the screen a second after it arrived.
+        .onChange(of: isLogging) { was, now in
+            if was, !now { tour?.completed(.logASession) }
         }
-        .onChange(of: isRetiring) { _, retiring in
-            if retiring { tour?.completed(.retireIt) }
+        .onChange(of: isRetiring) { was, now in
+            if was, !now { tour?.completed(.retireIt) }
         }
         .sheet(isPresented: $isLogging) { LogSessionView(reed: reed) }
         .task {

@@ -57,6 +57,31 @@ final class Tour {
             }
         }
 
+        /// The one thing this step is about, drawn on the card.
+        var symbol: String {
+            switch self {
+            case .dragAReed: "hand.draw"
+            case .openAReed: "hand.tap"
+            case .logASession: "plus.circle"
+            case .retireIt: "archivebox"
+            case .lifespan: "chart.bar"
+            case .done: "checkmark.circle"
+            }
+        }
+
+        /// What to do inside the sheet this step sends you into, if it does.
+        var sheetHint: String? {
+            switch self {
+            case .logASession:
+                "Set how long you played and what it was — Reedar works out how "
+                + "much of that actually wore the reed. Then save it."
+            case .retireIt:
+                "Say why it's finished. Its hours are kept either way — that's "
+                + "what the averages are made of."
+            default: nil
+            }
+        }
+
         var title: String {
             switch self {
             case .dragAReed: "Move a reed"
@@ -71,11 +96,11 @@ final class Tour {
         var blurb: String {
             switch self {
             case .dragAReed:
-                "Press the reed above and drag it up or down. The others shuffle "
-                + "aside to make room."
+                "Press and hold the ringed reed, then drag it down a slot or "
+                + "two. The others shuffle aside to make room."
             case .openAReed:
-                "Now tap it. Everything you do happens to a reed, so you pick "
-                + "one up first."
+                "Now tap that reed to open it. Everything in Reedar happens to "
+                + "a reed, so you pick one up first."
             case .logASession:
                 "Tap Log session. How long you played, and what it was — a "
                 + "rehearsal isn\u{2019}t two hours of wear, so Reedar counts the "
@@ -149,6 +174,12 @@ final class Tour {
         }
     }
 
+    /// The line a sheet should show, or nothing if the tour isn't there yet.
+    func hint(for step: Step) -> String? {
+        guard isRunning, self.step == step else { return nil }
+        return step.sheetHint
+    }
+
     func advance(quietly: Bool = false) {
         if !quietly { Haptics.tick() }
         justDidIt = false
@@ -163,6 +194,67 @@ final class Tour {
     func skip() {
         Haptics.tick()
         isRunning = false
+    }
+}
+
+/// The label that sits over the borrowed case for as long as it is borrowed.
+///
+/// Without it the app opens on three reeds nobody bought, asks you to retire
+/// one, and leaves you working out whether you have somehow inherited a case.
+/// It says what they are in four words and gets out of the way.
+///
+/// Drawn as an overlay above the case rather than a row inside it: a strip in
+/// the layout would take height off the bed and squash every bay, and the bays
+/// are the one thing on that screen that must not move.
+struct DemoTag: View {
+    var body: some View {
+        HStack(spacing: 7) {
+            Image(systemName: "hand.tap")
+                .font(.system(size: 11, weight: .bold))
+            Text("Practice reeds — none of these are yours")
+                .font(.copy(12, weight: .semibold))
+        }
+        .foregroundStyle(Palette.onAccent)
+        .padding(.horizontal, 13)
+        .padding(.vertical, 7)
+        .background(Capsule().fill(Palette.accent))
+        .shadow(color: .black.opacity(0.5), radius: 10, y: 4)
+        .allowsHitTesting(false)
+        .transition(.move(edge: .top).combined(with: .opacity))
+    }
+}
+
+/// One line of guidance inside a sheet the tour has sent you into.
+///
+/// The tour's own card lives above the case, and a sheet covers it — so the
+/// moment somebody follows "tap Log session" they lose the voice that told
+/// them to. This is that voice, carried into the sheet.
+struct TourHint: View {
+    var text: String
+
+    var body: some View {
+        HStack(spacing: 9) {
+            Image(systemName: "sparkles")
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundStyle(Palette.accent)
+            Text(text)
+                .font(.copy(12.5))
+                .foregroundStyle(Palette.inkSecondary)
+                .fixedSize(horizontal: false, vertical: true)
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, 13)
+        .padding(.vertical, 10)
+        .background {
+            RoundedRectangle(cornerRadius: Metrics.radiusInner, style: .continuous)
+                .fill(Palette.surfaceRaised)
+                .overlay {
+                    RoundedRectangle(cornerRadius: Metrics.radiusInner, style: .continuous)
+                        .strokeBorder(Palette.accent.opacity(0.35), lineWidth: 1)
+                }
+        }
+        .padding(.horizontal, Metrics.screenMargin)
+        .padding(.bottom, 8)
     }
 }
 
@@ -217,9 +309,14 @@ struct TourOverlay: View {
     var spot: CGRect?
 
     var body: some View {
-        ZStack {
+        ZStack(alignment: .bottom) {
             ring
-            card
+            VStack(spacing: 9) {
+                DemoTag()
+                card
+            }
+            .frame(maxHeight: .infinity, alignment: .bottom)
+            .padding(.bottom, 10)
         }
         .transition(.opacity)
     }
@@ -243,16 +340,21 @@ struct TourOverlay: View {
 
     private var card: some View {
         VStack(alignment: .leading, spacing: 9) {
-            HStack(spacing: 8) {
-                if tour.justDidIt {
-                    Image(systemName: "checkmark.circle.fill")
-                        .font(.system(size: 15, weight: .semibold))
-                        .foregroundStyle(Palette.signalGreen)
-                }
+            HStack(spacing: 9) {
+                Image(systemName: tour.justDidIt
+                      ? "checkmark.circle.fill" : tour.step.symbol)
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundStyle(tour.justDidIt ? Palette.signalGreen : Palette.accent)
+                    .frame(width: 20)
                 Text(tour.justDidIt ? "That's it" : tour.step.title)
                     .font(.heading(17))
                     .foregroundStyle(Palette.ink)
                 Spacer(minLength: 8)
+                // Lamps for the feel of it, and the number for anybody who
+                // wants to know how much of this is left.
+                Text("\(tour.step.rawValue + 1) of \(Tour.Step.allCases.count)")
+                    .font(.numeric(11.5, weight: .medium))
+                    .foregroundStyle(Palette.inkTertiary)
                 lamps
             }
 
@@ -293,8 +395,6 @@ struct TourOverlay: View {
         .shadow(color: .black.opacity(0.6), radius: 26, y: 12)
         .padding(.horizontal, Metrics.screenMargin)
         .column()
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
-        .padding(.bottom, 10)
         .animation(.settle, value: tour.step)
     }
 

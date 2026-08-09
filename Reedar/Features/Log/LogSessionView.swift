@@ -12,6 +12,8 @@ struct LogSessionView: View {
     var editing: PlaySession?
 
     @Environment(\.dismiss) private var dismiss
+    /// Present only while onboarding is running — see `Tour`.
+    @Environment(Tour.self) private var tour: Tour?
     @Environment(\.modelContext) private var context
 
     private enum Page { case what, how, review }
@@ -48,6 +50,11 @@ struct LogSessionView: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             .background { Backdrop() }
             .safeAreaInset(edge: .bottom) { footer }
+            // The tour's card is behind this sheet, so the step it sent you
+            // here for has to speak from inside it.
+            .safeAreaInset(edge: .top) {
+                if let hint = tour?.hint(for: .logASession) { TourHint(text: hint) }
+            }
             .navigationBarTitleDisplayMode(.inline)
             .toolbarBackground(.hidden, for: .navigationBar)
             .toolbar {

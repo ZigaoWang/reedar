@@ -30,7 +30,9 @@ struct WelcomeView: View {
                     .multilineTextAlignment(.center)
                 Text("Log what you play, retire a reed when it's done, and Reedar "
                      + "works out what your reeds actually last you — by brand, "
-                     + "model and strength.")
+                     + "model and strength.\n\nThe tour uses a case of practice "
+                     + "reeds you can do anything to. They disappear at the end, "
+                     + "and then you add your own.")
                     .font(.copy(15))
                     .foregroundStyle(Palette.inkSecondary)
                     .multilineTextAlignment(.center)
