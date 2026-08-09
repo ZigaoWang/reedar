@@ -879,20 +879,28 @@ struct CaseView: View {
     /// on this screen is cut into.
     ///
     /// No inner shading and no edge light: both describe a wall, and the walls
-    /// are out of frame. Clipped to the display's own corner radius so the
-    /// corners are struck by the phone rather than by a rectangle that happens
-    /// to be behind it.
+    /// are out of frame.
+    ///
+    /// Not rounded, and deliberately so. The corners are meant to be struck by
+    /// the phone rather than by a rectangle behind it — and since this surface
+    /// runs to the glass on every edge, the display already does exactly that.
+    /// Drawing a rounded rectangle to match it meant knowing the display's
+    /// corner radius, which UIKit has never exposed; it was read through a
+    /// private key with a hardcoded fallback, and any device the fallback
+    /// guessed wrong for got the tray cut *inside* the glass, showing a sliver
+    /// of the backdrop at all four corners. It could never have been right in
+    /// an iPad window either, where the corners belong to the window and not to
+    /// the screen.
+    ///
+    /// A rectangle is right everywhere, and needs to know nothing.
     ///
     /// The grain matters more here than anywhere. This is the largest single
     /// surface in the app by a long way, and at that size a flat fill stops
     /// being a material and becomes a rectangle.
-    ///
     private var ground: some View {
-        let shape = RoundedRectangle(cornerRadius: Metrics.radiusCase, style: .continuous)
-        return shape
+        Rectangle()
             .fill(Palette.trayFace)
             .grained(0.025)
-            .clipShape(shape)
     }
 
     // MARK: Carrying
