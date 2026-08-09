@@ -40,7 +40,11 @@ struct CaseView: View {
 
     /// The screens that hang off the plate. Retired reeds were two taps deep
     /// behind Lifespan, which is a strange place to keep half the collection.
-    private enum Destination: Hashable {
+    /// Not private: Settings pushes About, and it does it by value like
+    /// everything else on this stack rather than by handing a view to a
+    /// `NavigationLink` — see the note on `path` for what mixing the two
+    /// mechanisms cost the last time.
+    enum Destination: Hashable {
         case lifespan
         case archive
         case settings
@@ -356,22 +360,18 @@ struct CaseView: View {
     private var headPlate: some View {
         ZStack {
             VStack(spacing: 0) {
-                // A menu, not a jump. The mark used to go straight to About,
-                // which was fine while About was the only thing behind it; now
-                // that there are settings to reach, the one pressable thing on
-                // the case has to offer both rather than hide one behind the
-                // other.
-                Menu {
-                    Button {
-                        path.append(Destination.settings)
-                    } label: {
-                        Label("Settings", systemImage: "slider.horizontal.3")
-                    }
-                    Button {
-                        path.append(Destination.about)
-                    } label: {
-                        Label("About Reedar", systemImage: "info.circle")
-                    }
+                // A jump, not a menu. There was a menu here for a while, on
+                // the grounds that the one pressable thing on the case had two
+                // places to go and shouldn't hide either behind the other —
+                // which put a two-item sheet between a finger and both of them.
+                //
+                // They aren't two places. One is where you change things and
+                // the other is a page about the app, which is a thing settings
+                // screens have carried at the bottom for as long as there have
+                // been settings screens. The mark goes where you were going,
+                // and About is the last row of it.
+                Button {
+                    path.append(Destination.settings)
                 } label: {
                     HStack(spacing: 9) {
                         // Struck to the wordmark's own line, so the mark and
@@ -415,7 +415,7 @@ struct CaseView: View {
                     .contentShape(Rectangle())
                 }
                 .buttonStyle(.sink)
-                .accessibilityLabel("Reedar, settings and about")
+                .accessibilityLabel("Reedar, settings")
 
             }
             // Clear of the keys at both ends, so a long line shortens rather

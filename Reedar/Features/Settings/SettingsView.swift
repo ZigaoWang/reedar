@@ -62,6 +62,19 @@ struct SettingsView: View {
                     }
                     .buttonStyle(.sink)
                 }
+
+                section("About") {
+                    // Where a page about the app has lived on every settings
+                    // screen ever written: at the bottom, under the things you
+                    // came here to change.
+                    NavigationLink(value: CaseView.Destination.about) {
+                        row(symbol: "info.circle",
+                            title: "About Reedar",
+                            detail: "What this is, and who made it",
+                            leadsOn: true)
+                    }
+                    .buttonStyle(.sink)
+                }
             }
             .padding(.horizontal, Metrics.screenMargin)
             .column()
@@ -170,7 +183,8 @@ struct SettingsView: View {
         }
     }
 
-    private func row(symbol: String, title: String, detail: String) -> some View {
+    private func row(symbol: String, title: String, detail: String,
+                     leadsOn: Bool = false) -> some View {
         HStack(spacing: 11) {
             Image(systemName: symbol)
                 .font(.system(size: 14, weight: .semibold))
@@ -187,6 +201,15 @@ struct SettingsView: View {
             }
 
             Spacer(minLength: 8)
+
+            // Only on the row that goes somewhere. "Show the welcome again"
+            // does something and stays put; a chevron on it would promise a
+            // screen that never arrives.
+            if leadsOn {
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(Palette.inkTertiary)
+            }
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 13)
