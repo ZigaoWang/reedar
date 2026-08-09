@@ -119,6 +119,7 @@ struct ReedDetailView: View {
         .task {
             // Open the log sheet directly, for checking it in the simulator.
             if ProcessInfo.processInfo.arguments.contains("-openLog") { isLogging = true }
+            if ProcessInfo.processInfo.arguments.contains("-openRetire") { isRetiring = true }
         }
         .sheet(isPresented: $isRetiring) { RetireReedView(reed: reed) { dismiss() } }
         .sheet(item: $editingSession) { LogSessionView(reed: reed, editing: $0) }

@@ -108,6 +108,20 @@ enum RetireReason: String, Codable, CaseIterable, Identifiable, Sendable {
         }
     }
 
+    /// How the reed actually felt when it went. Two words on a key can't tell
+    /// "warped" from "blown out" to anybody who hasn't already decided which
+    /// one it was, and picking the wrong one quietly poisons the averages.
+    var detail: String {
+        switch self {
+        case .wentFlat: "Dull and slow. No core left in the sound."
+        case .chipped: "Split or chipped at the tip."
+        case .warped: "Won't seal flat against the mouthpiece."
+        case .tooSoft: "Blown out — too free, nothing to push against."
+        case .feltDone: "Nothing obviously wrong. It just stopped working."
+        case .lost: "Gone missing, or broken off the horn."
+        }
+    }
+
     /// A reed that chipped or got lost didn't die of old age — its playing time
     /// is not a fair sample of that model's lifespan.
     var countsTowardLifespan: Bool {

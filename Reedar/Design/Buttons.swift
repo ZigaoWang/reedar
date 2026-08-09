@@ -237,12 +237,23 @@ struct ChoiceRow: View {
     var title: String
     var detail: String?
     var tag: String?
+    /// A leading glyph, where the options are a set the player already has a
+    /// picture of. Nothing draws it when it's absent, so a row of plain words
+    /// stays a row of plain words.
+    var symbol: String?
     var isSelected: Bool
     var action: () -> Void
 
     var body: some View {
         Button(action: action) {
             HStack(alignment: .top, spacing: 10) {
+                if let symbol {
+                    Image(systemName: symbol)
+                        .font(.system(size: 15, weight: .medium))
+                        .foregroundStyle(isSelected ? Palette.onAccent : Palette.inkSecondary)
+                        .frame(width: 22, height: 22)
+                        .padding(.top, 1)
+                }
                 VStack(alignment: .leading, spacing: 3) {
                     HStack(spacing: 6) {
                         Text(title)
