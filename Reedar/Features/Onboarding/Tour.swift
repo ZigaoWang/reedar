@@ -57,6 +57,15 @@ final class Tour {
             }
         }
 
+        /// The gesture to mime on top of the target.
+        var gesture: GestureHint.Kind? {
+            switch self {
+            case .dragAReed: .drag
+            case .openAReed, .logASession, .retireIt, .lifespan: .tap
+            case .done: nil
+            }
+        }
+
         /// The one thing this step is about, drawn on the card.
         var symbol: String {
             switch self {
@@ -197,30 +206,44 @@ final class Tour {
     }
 }
 
-/// The label that sits over the borrowed case for as long as it is borrowed.
+/// A fingertip, doing the thing the step is asking for, on top of the thing it
+/// is asking you to do it to.
 ///
-/// Without it the app opens on three reeds nobody bought, asks you to retire
-/// one, and leaves you working out whether you have somehow inherited a case.
-/// It says what they are in four words and gets out of the way.
-///
-/// Drawn as an overlay above the case rather than a row inside it: a strip in
-/// the layout would take height off the bed and squash every bay, and the bays
-/// are the one thing on that screen that must not move.
-struct DemoTag: View {
+/// Words describing a gesture are the weakest part of any tour: "press and hold,
+/// then drag" is four instructions and a guess about which reed. A dot that
+/// slides down the reed, over and over, is none. It takes no touches, so your
+/// own finger lands on the reed underneath it.
+struct GestureHint: View {
+    enum Kind { case tap, drag }
+
+    var kind: Kind
+    @State private var going = false
+
     var body: some View {
-        HStack(spacing: 7) {
-            Image(systemName: "hand.tap")
-                .font(.system(size: 11, weight: .bold))
-            Text("Practice reeds — none of these are yours")
-                .font(.copy(12, weight: .semibold))
+        fingertip
+            .scaleEffect(kind == .tap && going ? 0.82 : 1)
+            .offset(y: kind == .drag && going ? 46 : -10)
+            .opacity(kind == .drag && going ? 0 : 0.95)
+            .allowsHitTesting(false)
+            .onAppear {
+                withAnimation(
+                    .easeInOut(duration: kind == .tap ? 0.75 : 1.15)
+                        .repeatForever(autoreverses: kind == .tap)
+                ) { going = true }
+            }
+    }
+
+    private var fingertip: some View {
+        ZStack {
+            Circle()
+                .fill(Palette.accent.opacity(0.28))
+                .frame(width: 42, height: 42)
+            Circle()
+                .fill(Palette.accent)
+                .frame(width: 20, height: 20)
+                .overlay { Circle().strokeBorder(.white.opacity(0.65), lineWidth: 1.5) }
+                .shadow(color: .black.opacity(0.5), radius: 6, y: 2)
         }
-        .foregroundStyle(Palette.onAccent)
-        .padding(.horizontal, 13)
-        .padding(.vertical, 7)
-        .background(Capsule().fill(Palette.accent))
-        .shadow(color: .black.opacity(0.5), radius: 10, y: 4)
-        .allowsHitTesting(false)
-        .transition(.move(edge: .top).combined(with: .opacity))
     }
 }
 
@@ -311,18 +334,20 @@ struct TourOverlay: View {
     var body: some View {
         ZStack(alignment: .bottom) {
             ring
-            VStack(spacing: 9) {
-                DemoTag()
-                card
-            }
-            .frame(maxHeight: .infinity, alignment: .bottom)
-            .padding(.bottom, 10)
+            card
+                .frame(maxHeight: .infinity, alignment: .bottom)
+                .padding(.bottom, 10)
         }
         .transition(.opacity)
     }
 
     @ViewBuilder private var ring: some View {
         if let spot {
+            if let gesture = tour.step.gesture, !tour.justDidIt {
+                GestureHint(kind: gesture)
+                    .id(tour.step)
+                    .position(x: spot.midX, y: spot.midY)
+            }
             RoundedRectangle(cornerRadius: 14, style: .continuous)
                 .strokeBorder(tour.justDidIt ? Palette.signalGreen : Palette.accent,
                               lineWidth: 2.5)
@@ -347,7 +372,7 @@ struct TourOverlay: View {
                     .foregroundStyle(tour.justDidIt ? Palette.signalGreen : Palette.accent)
                     .frame(width: 20)
                 Text(tour.justDidIt ? "That's it" : tour.step.title)
-                    .font(.heading(17))
+                    .font(.title(20))
                     .foregroundStyle(Palette.ink)
                 Spacer(minLength: 8)
                 // Lamps for the feel of it, and the number for anybody who
@@ -358,9 +383,12 @@ struct TourOverlay: View {
                 lamps
             }
 
+            // Full ink, not the secondary grey. This is the only instruction on
+            // the screen and it was being set like a caption under it.
             Text(tour.justDidIt ? tour.step.done : tour.step.blurb)
-                .font(.copy(13.5))
-                .foregroundStyle(Palette.inkSecondary)
+                .font(.copy(15))
+                .foregroundStyle(Palette.ink.opacity(0.92))
+                .lineSpacing(1.5)
                 .fixedSize(horizontal: false, vertical: true)
                 .frame(maxWidth: .infinity, alignment: .leading)
 
@@ -380,6 +408,9 @@ struct TourOverlay: View {
                     Button("Skip tour") { tour.skip() }
                         .font(.copy(13))
                         .foregroundStyle(Palette.inkTertiary)
+                    Text("· practice reeds")
+                        .font(.copy(12))
+                        .foregroundStyle(Palette.inkTertiary)
                     Spacer(minLength: 8)
                     Button(tour.step.forward) { tour.advance() }
                         .font(.copy(13.5, weight: .semibold))
@@ -390,7 +421,7 @@ struct TourOverlay: View {
                 .padding(.top, 5)
             }
         }
-        .padding(16)
+        .padding(18)
         .raised(depth: .high)
         .shadow(color: .black.opacity(0.6), radius: 26, y: 12)
         .padding(.horizontal, Metrics.screenMargin)

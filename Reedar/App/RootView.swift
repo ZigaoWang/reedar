@@ -22,6 +22,8 @@ struct RootView: View {
     @State private var tour = Tour()
     /// The one screen in onboarding that is a screen. See `WelcomeView`.
     @State private var showingWelcome = false
+    /// The screen between the welcome and the tour, explaining the reeds.
+    @State private var showingDemoNotice = false
     /// Set when the tour ends on "Add my first reed", and read once by the
     /// case, which owns the add flow.
     @State private var startAdding = false
@@ -73,10 +75,18 @@ struct RootView: View {
             .fullScreenCover(isPresented: $showingWelcome) {
                 WelcomeView {
                     showingWelcome = false
-                    withAnimation(.settle) { tour.isRunning = true }
+                    showingDemoNotice = true
                 } skip: {
                     showingWelcome = false
                     finishOnboarding(addReed: false)
+                }
+                .preferredColorScheme(.dark)
+                .tint(Palette.accent)
+            }
+            .fullScreenCover(isPresented: $showingDemoNotice) {
+                DemoNoticeView {
+                    showingDemoNotice = false
+                    withAnimation(.settle) { tour.isRunning = true }
                 }
                 .preferredColorScheme(.dark)
                 .tint(Palette.accent)
@@ -87,6 +97,8 @@ struct RootView: View {
                 // looking at one step of it.
                 if ProcessInfo.processInfo.arguments.contains("-tourStep") {
                     tour.isRunning = true
+                } else if ProcessInfo.processInfo.arguments.contains("-openDemoNotice") {
+                    showingDemoNotice = true
                 } else {
                     showingWelcome = true
                 }
