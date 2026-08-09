@@ -35,8 +35,10 @@ struct RetireReedView: View {
             }
             .scrollIndicators(.hidden)
             .background { Backdrop() }
-            .safeAreaInset(edge: .top) {
-                if let hint = tour?.hint(for: .retireIt) { TourHint(text: hint) }
+            .safeAreaInset(edge: .bottom) {
+                if tour?.isShowing(.retireIt) == true, let tour {
+                    TourCard(tour: tour, inSheet: true).padding(.bottom, 6)
+                }
             }
             .navigationTitle("Retire")
             .navigationBarTitleDisplayMode(.inline)

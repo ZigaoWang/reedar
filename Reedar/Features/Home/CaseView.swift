@@ -269,6 +269,12 @@ struct CaseView: View {
             // the first free bay rather than a chosen one: the case is empty,
             // every bay is the first bay, and being asked to pick one is a
             // question with no wrong answer, which is the worst kind.
+            // The tour talks about one reed for its whole length. Chosen once,
+            // when it starts, and then followed wherever it goes.
+            .task(id: tour?.isRunning) {
+                guard let tour, tour.isRunning, tour.focusReed == nil else { return }
+                tour.focusReed = slots.compactMap { $0 }.first?.id
+            }
             .onChange(of: startAdding.wrappedValue) { _, wants in
                 guard wants else { return }
                 startAdding.wrappedValue = false
@@ -768,7 +774,9 @@ struct CaseView: View {
                     // Opening the reed lives inside this too — see the comment
                     // on `carryGesture`.
                     .gesture(carryGesture(for: reed, at: index, in: grid))
-                    .tourTargetIf(index == 0, .firstReed)
+                    // By identity, so the ring rides the reed you picked up
+                    // rather than staying behind on the slot it left.
+                    .tourTargetIf(reed.id == tour?.focusReed, .firstReed)
                 }
             }
             .frame(maxWidth: .infinity, alignment: .topLeading)

@@ -52,8 +52,10 @@ struct LogSessionView: View {
             .safeAreaInset(edge: .bottom) { footer }
             // The tour's card is behind this sheet, so the step it sent you
             // here for has to speak from inside it.
-            .safeAreaInset(edge: .top) {
-                if let hint = tour?.hint(for: .logASession) { TourHint(text: hint) }
+            .safeAreaInset(edge: .bottom) {
+                if tour?.isShowing(.logASession) == true, let tour {
+                    TourCard(tour: tour, inSheet: true).padding(.bottom, 6)
+                }
             }
             .navigationBarTitleDisplayMode(.inline)
             .toolbarBackground(.hidden, for: .navigationBar)
