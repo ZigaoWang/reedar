@@ -22,6 +22,10 @@ struct RootView: View {
     /// iPad on a lit stand should not have to agree about it.
     @AppStorage(Appearance.key) private var appearance: Appearance = .dark
 
+    /// Which accent the case is trimmed in. Alongside the appearance, and for
+    /// the same reason: it is a fact about this installation, not about reeds.
+    @AppStorage(Accent.key) private var accent: Accent = .orange
+
     @State private var showingWelcome = false
     /// Which of the welcome's two pages is showing.
     ///
@@ -44,6 +48,9 @@ struct RootView: View {
             // A reed case is black, which is what this ships set to — but the
             // case is read in rooms, and the player owns which one.
             .preferredColorScheme(appearance.colorScheme)
+            // Writes `AccentTrait` for everything below, which is what lets
+            // every accent-coloured thing in the app re-resolve in place.
+            .environment(\.accent, accent)
             .tint(Palette.accent)
             .task { Haptics.warmUp() }
             // Nothing here transforms the case, and nothing here transforms the
@@ -81,6 +88,7 @@ struct RootView: View {
                     finish(addReed: false)
                 }
                 .preferredColorScheme(appearance.colorScheme)
+                .environment(\.accent, accent)
                 .tint(Palette.accent)
             }
             // After the veil, not under it.

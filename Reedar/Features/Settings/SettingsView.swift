@@ -8,12 +8,14 @@ import SwiftUI
 struct SettingsView: View {
     @AppStorage(Intro.seenKey) private var hasSeenIntro = false
     @AppStorage(Appearance.key) private var appearance: Appearance = .dark
+    @AppStorage(Accent.key) private var accent: Accent = .orange
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 20) {
                 appearanceSection
+                accentSection
 
                 section("Welcome") {
                     Button {
@@ -67,6 +69,60 @@ struct SettingsView: View {
                 )
             }
         }
+    }
+
+    /// Six discs of the colour itself.
+    ///
+    /// No names on them. "Rust" and "Amber" are words for a colour you are
+    /// already looking at, and six of them in a row is a list to read rather
+    /// than a set to choose from — the swatch is the label. The names stay in
+    /// `Accent` for the accessibility label, which is the one place a word is
+    /// the only thing there is.
+    private var accentSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Accent")
+                .microLabel()
+                .padding(.leading, 4)
+            Panel(padding: 14) {
+                HStack(spacing: 0) {
+                    ForEach(Accent.allCases) { option in
+                        Button {
+                            accent = option
+                            Haptics.tick()
+                        } label: {
+                            swatch(option)
+                        }
+                        .buttonStyle(.plain)
+                        .frame(maxWidth: .infinity)
+                        .accessibilityLabel(option.displayName)
+                        .accessibilityAddTraits(accent == option ? [.isSelected] : [])
+                    }
+                }
+            }
+        }
+    }
+
+    /// The disc, and a ring standing off it when it's the one in use. A ring
+    /// rather than a tick: a tick has to be drawn in something, and there is no
+    /// colour that reads on all six.
+    private func swatch(_ option: Accent) -> some View {
+        let colour = Color(uiColor: UIColor { traits in
+            UIColor(hex: traits.userInterfaceStyle == .light
+                    ? option.light.body : option.dark.body)
+        })
+        return Circle()
+            .fill(colour)
+            .frame(width: 30, height: 30)
+            .overlay {
+                Circle().strokeBorder(Palette.hairline, lineWidth: 1)
+            }
+            .padding(4)
+            .overlay {
+                Circle()
+                    .strokeBorder(accent == option ? colour : .clear, lineWidth: 2)
+            }
+            .animation(.mechanical, value: accent)
+            .contentShape(Circle())
     }
 
     /// A labelled group, matching About's — the two screens are siblings now

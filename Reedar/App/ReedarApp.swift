@@ -21,6 +21,11 @@ struct ReedarApp: App {
            let appearance = Appearance(rawValue: arguments[index + 1]) {
             UserDefaults.standard.set(appearance.rawValue, forKey: Appearance.key)
         }
+        if let index = arguments.firstIndex(of: "-accent"),
+           arguments.indices.contains(index + 1),
+           let accent = Accent(rawValue: arguments[index + 1]) {
+            UserDefaults.standard.set(accent.rawValue, forKey: Accent.key)
+        }
 
         // `-seedSampleData` fills an in-memory store with a believable
         // rotation, for screenshots and for poking at the UI in the simulator.

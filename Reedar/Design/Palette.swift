@@ -62,16 +62,18 @@ enum Palette {
 
     // MARK: Accent
 
-    /// The light accent is not the dark one. 0xFF6A1A on white measures
-    /// 2.6 : 1, and this colour carries sentences — "About 8h 45m left",
-    /// the playing figure on the log sheet, every value that matters. Burnt
-    /// down to 0xC24705 it clears 5 : 1 on a white panel and still reads as
-    /// the same orange family on a key.
-    static let accent = dynamic(dark: 0xFF6A1A, light: 0xC24705)
-    static let accentDeep = dynamic(dark: 0xE0530A, light: 0xA53B03)
-    /// The legend on an accent-filled key: near-black on the bright orange,
-    /// near-white on the burnt one.
-    static let onAccent = dynamic(dark: 0x1A0C02, light: 0xFFF4EC)
+    /// Whichever accent the player picked, in whichever material.
+    ///
+    /// Every light value is burnt well down from its dark one, and not for
+    /// taste: this colour carries sentences — "About 8h 45m left", the playing
+    /// figure on the log sheet, every value that matters — and the bright
+    /// versions measure under 3 : 1 on a white panel. See `Accent`.
+    static let accent = accentDynamic { $0.body }
+    static let accentDeep = accentDynamic { $0.deep }
+    /// The legend on an accent-filled key: near-black on a bright accent,
+    /// near-white on a burnt one. One pair for all six, because the accents are
+    /// all bright in the dark material and all deep in the light one.
+    static let onAccent = dynamic(dark: 0x160E04, light: 0xFFF6F1)
 
     // MARK: Signals
 
@@ -210,11 +212,123 @@ enum Palette {
         })
     }
 
+    /// The same trait lookup as `dynamic`, plus the one thing that isn't a
+    /// trait of the display: which accent the player chose. `AccentTrait`
+    /// carries it into the same trait collection, so an accent behaves exactly
+    /// like light and dark — resolved at draw time, nothing to keep in step.
+    private static func accentDynamic(_ pick: @escaping (Accent.Tone) -> UInt32) -> Color {
+        Color(uiColor: UIColor { traits in
+            let accent = Accent(rawValue: traits[AccentTrait.self]) ?? .orange
+            let tone = traits.userInterfaceStyle == .light ? accent.light : accent.dark
+            return UIColor(hex: pick(tone))
+        })
+    }
+
     private static func gradient(dark: (UInt32, UInt32),
                                  light: (UInt32, UInt32)) -> LinearGradient {
         LinearGradient(colors: [dynamic(dark: dark.0, light: light.0),
                                 dynamic(dark: dark.1, light: light.1)],
                        startPoint: .top, endPoint: .bottom)
+    }
+}
+
+/// The one colour the app spends, in six.
+///
+/// Each is two colours, not one shade lightened. The dark material wants a
+/// bright accent on near-black; the light material wants that same hue burnt
+/// down until it clears 4.5 : 1 on a white panel, because this colour sets
+/// real sentences and figures rather than just filling keys. Picking the
+/// bright value and dimming it algorithmically gives a muddy mid-tone that is
+/// too dark for one material and too pale for the other.
+///
+/// Six, and no greens or reds near the signal colours: a green accent sitting
+/// beside the green "Ready" lamp, or a red one beside a spent reed's red
+/// segments, makes the app look like it is saying something it isn't.
+enum Accent: String, CaseIterable, Identifiable, Sendable {
+    case orange, amber, rust, teal, blue, violet
+
+    static let key = "accent"
+
+    /// One material's worth: the accent itself, and the deeper one under it.
+    struct Tone {
+        var body: UInt32
+        var deep: UInt32
+    }
+
+    var id: String { rawValue }
+
+    var displayName: String {
+        switch self {
+        case .orange: "Orange"
+        case .amber: "Amber"
+        case .rust: "Rust"
+        case .teal: "Teal"
+        case .blue: "Blue"
+        case .violet: "Violet"
+        }
+    }
+
+    /// On black plastic.
+    var dark: Tone {
+        switch self {
+        case .orange: Tone(body: 0xFF6A1A, deep: 0xE0530A)
+        case .amber: Tone(body: 0xFFC24D, deep: 0xE0A02A)
+        case .rust: Tone(body: 0xFF5A45, deep: 0xE03E28)
+        case .teal: Tone(body: 0x26D0B0, deep: 0x12B092)
+        case .blue: Tone(body: 0x4AA8FF, deep: 0x2588E0)
+        case .violet: Tone(body: 0xB98CFF, deep: 0x9A69E8)
+        }
+    }
+
+    /// On bone plastic. Every `body` here clears 4.5 : 1 on a white panel.
+    var light: Tone {
+        switch self {
+        case .orange: Tone(body: 0xC24705, deep: 0xA53B03)
+        case .amber: Tone(body: 0x8A5D0B, deep: 0x704A06)
+        case .rust: Tone(body: 0xB3311F, deep: 0x952616)
+        case .teal: Tone(body: 0x0B7A68, deep: 0x066253)
+        case .blue: Tone(body: 0x1B63C7, deep: 0x1350A6)
+        case .violet: Tone(body: 0x6A3FC7, deep: 0x5631A6)
+        }
+    }
+}
+
+/// The accent, carried as a trait.
+///
+/// Light and dark resolve themselves because they are traits of the display,
+/// and `UIColor` looks them up at draw time. The accent is a preference, not a
+/// trait, which normally means a global somewhere and something to force every
+/// view to redraw when it changes — and the only blunt instrument for that,
+/// re-identifying the root, tears down the navigation stack. Changing your
+/// accent while standing in Settings would throw you back out to the case.
+///
+/// Registering it as a trait puts it in the same collection every colour is
+/// already resolved against. `affectsColorAppearance` is what tells the system
+/// that colours have to be re-resolved when it changes, so the case behind the
+/// sheet turns over with it and nothing is rebuilt.
+struct AccentTrait: UITraitDefinition {
+    static let defaultValue = Accent.orange.rawValue
+    static let affectsColorAppearance = true
+}
+
+/// The SwiftUI half of the same value. Bridged rather than mirrored: writing
+/// the environment value writes the trait, so there is one source of truth.
+private struct AccentEnvironmentKey: EnvironmentKey, UITraitBridgedEnvironmentKey {
+    static let defaultValue: Accent = .orange
+
+    static func read(from traitCollection: UITraitCollection) -> Accent {
+        Accent(rawValue: traitCollection[AccentTrait.self]) ?? .orange
+    }
+
+    static func write(to mutableTraits: inout UIMutableTraits, value: Accent) {
+        mutableTraits[AccentTrait.self] = value.rawValue
+    }
+}
+
+extension EnvironmentValues {
+    var accent: Accent {
+        get { self[AccentEnvironmentKey.self] }
+        set { self[AccentEnvironmentKey.self] = newValue }
     }
 }
 
