@@ -137,13 +137,17 @@ struct StatsView: View {
     }
 
     var body: some View {
-        ScrollView {
-            layout
-                .padding(.horizontal, Metrics.screenMargin)
-                .column(isWide && !counted.isEmpty ? Metrics.spread : Metrics.column)
-                .padding(.bottom, 28)
+        GeometryReader { window in
+            ScrollView {
+                layout
+                    .padding(.horizontal, Metrics.screenMargin)
+                    .column(isWide && !counted.isEmpty ? Metrics.spread : Metrics.column)
+                    .padding(.bottom, 28)
+                    .frame(minHeight: isWide ? window.size.height : nil,
+                           alignment: .center)
+            }
+            .scrollIndicators(.hidden)
         }
-        .scrollIndicators(.hidden)
         .background { Backdrop() }
         .navigationTitle("Lifespan")
         .navigationBarTitleDisplayMode(.inline)

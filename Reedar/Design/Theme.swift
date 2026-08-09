@@ -108,6 +108,18 @@ extension View {
             .frame(maxWidth: .infinity)
     }
 
+    // Holds a short screen in the middle of a tall one.
+    //
+    // A pushed screen is one column in a scroll view, and on a phone it is
+    // nearly always longer than the glass, so where it starts is the only
+    // question. A 13" iPad is a different question: a reed's page comes to
+    // about 580pt of content in 1,376 points of height, and pinned to the top
+    // that reads as a screen that failed to finish loading rather than one
+    // with room to spare. The case already answers it this way — the plate
+    // stays at the top and the bed centres in what's left.
+    //
+    // `minHeight` only ever adds, so nothing moves once the content is taller
+    // than the window, and phones never reach the condition at all.
     /// A section label: small caps, wide, quiet.
     func microLabel(_ color: Color = Palette.inkSecondary) -> some View {
         self

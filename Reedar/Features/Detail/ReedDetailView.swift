@@ -64,13 +64,17 @@ struct ReedDetailView: View {
     }
 
     var body: some View {
-        ScrollView {
-            layout
-                .padding(.horizontal, Metrics.screenMargin)
-                .column(isWide ? Metrics.spread : Metrics.column)
-                .padding(.bottom, 28)
+        GeometryReader { window in
+            ScrollView {
+                layout
+                    .padding(.horizontal, Metrics.screenMargin)
+                    .column(isWide ? Metrics.spread : Metrics.column)
+                    .padding(.bottom, 28)
+                    .frame(minHeight: isWide ? window.size.height : nil,
+                           alignment: .center)
+            }
+            .scrollIndicators(.hidden)
         }
-        .scrollIndicators(.hidden)
         .background { Backdrop() }
         // The short name, not the full one. `displayTitle` is the whole
         // "D'Addario Select Jazz Unfiled 2M", which is why this was hand-set

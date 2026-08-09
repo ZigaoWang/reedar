@@ -5,11 +5,28 @@ import SwiftUI
 struct ArchiveView: View {
     @Query(sort: \Reed.retiredAt, order: .reverse) private var reeds: [Reed]
 
+    @Environment(\.horizontalSizeClass) private var widthClass
+    private var isWide: Bool { widthClass == .regular }
+
     private var retired: [Reed] { reeds.filter(\.isRetired) }
+
+    /// Two columns where there's room, one where there isn't — the same answer
+    /// the case gives, and the same one the reed's page and the lifespan table
+    /// already give.
+    ///
+    /// This screen was the last holdout: a single 520pt column of reeds down
+    /// the middle of a 13" display, with the rest of the glass bare. A retired
+    /// reed is drawn in its bay at the case's own proportions, so a column of
+    /// them is a tall, narrow list of wide, short objects — the one shape that
+    /// wastes a big screen fastest.
+    private var columns: [GridItem] {
+        Array(repeating: GridItem(.flexible(), spacing: Metrics.gutter),
+              count: isWide ? 2 : 1)
+    }
 
     var body: some View {
         ScrollView {
-            LazyVStack(spacing: Metrics.stack) {
+            LazyVGrid(columns: columns, spacing: Metrics.stack) {
                 ForEach(Array(retired.enumerated()), id: \.element.id) { index, reed in
                     NavigationLink(value: reed) {
                         ArchiveRow(reed: reed,
@@ -20,7 +37,7 @@ struct ArchiveView: View {
                 }
             }
             .padding(.horizontal, Metrics.screenMargin)
-            .column()
+            .column(isWide ? Metrics.spread : Metrics.column)
             .padding(.top, 4)
             .padding(.bottom, 28)
         }
