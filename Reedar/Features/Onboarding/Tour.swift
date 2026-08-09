@@ -51,9 +51,13 @@ final class Tour {
     /// card can follow a flow it knows nothing about.
     var detail: String?
 
-    /// True for the moment between doing the thing and being shown the next
-    /// step, so the card can say so instead of silently swapping its words.
-    var justDidIt = false
+    /// The steps that have been carried out. Membership is what unlocks the
+    /// key that moves on: until you have done the thing, Next is not a way
+    /// forward, it is a way past — and that is what Skip is for.
+    var done: Set<Step> = []
+
+    /// Whether the step on screen has been carried out.
+    var isDone: Bool { done.contains(step) }
 
     enum Step: Int, CaseIterable {
         case dragAReed
@@ -125,40 +129,39 @@ final class Tour {
 
         var title: String {
             switch self {
-            case .dragAReed: "Move a reed"
-            case .openAReed: "Open one"
-            case .logASession: "Log what you play"
-            case .retireIt: "Retire it when it's done"
-            case .archive: "Where finished reeds go"
-            case .lifespan: "What your reeds last"
-            case .done: "That's the whole app"
+            case .dragAReed: "Drag a reed"
+            case .openAReed: "Open a reed"
+            case .logASession: "Log a session"
+            case .retireIt: "Retire a reed"
+            case .archive: "Find it again"
+            case .lifespan: "See what they last"
+            case .done: "You've seen it all"
             }
         }
 
         var blurb: String {
             switch self {
             case .dragAReed:
-                "Press and hold the ringed reed, then drag it down a slot or "
-                + "two. The others shuffle aside to make room."
+                "Press and hold the ringed reed, then slide it down. Reeds sit "
+                + "in the order you mean to play them."
             case .openAReed:
-                "Now tap that reed to open it. Everything in Reedar happens to "
-                + "a reed, so you pick one up first."
+                "Tap that same reed. Everything in Reedar happens to a reed, so "
+                + "you pick one up first."
             case .logASession:
-                "Tap Log session. How long you played, and what it was — a "
-                + "rehearsal isn\u{2019}t two hours of wear, so Reedar counts the "
-                + "part you spent blowing."
+                "Tap Log session. Three taps, and it is the only thing the app "
+                + "ever asks of you."
             case .retireIt:
-                "Tap the archive key. Retiring a finished reed is the moment "
-                + "the app learns something: a reed that lasted you 9 hours."
+                "Tap the archive key beside it. A reed you retire is a reed the "
+                + "app can finally learn from."
             case .archive:
-                "That reed has left the case. Tap the archive key, top left, to "
-                + "see where it went — retired reeds keep every hour they did."
+                "Tap the archive key, top left. Retired reeds live there, hours "
+                + "and all."
             case .lifespan:
-                "Back in your case, tap the chart key at the top right. Every "
-                + "retired reed adds up there."
+                "Go back, then tap the chart key, top right. This is what all "
+                + "the logging was for."
             case .done:
-                "The case, a reed, and the numbers behind it. Ready to put a "
-                + "real one in?"
+                "The case, a reed, and the numbers behind it. Time to put a real "
+                + "reed in."
             }
         }
 
@@ -166,12 +169,12 @@ final class Tour {
         /// step was the thing you just did, not a coincidence.
         var done: String {
             switch self {
-            case .dragAReed: "The reeds shuffled aside to make room for it."
-            case .openAReed: "This is the reed's own page \u{2014} its hours, its log, and what's left in it."
-            case .logASession: "Every session you log wears the reed down a little."
-            case .retireIt: "Retired reeds keep their hours. That's what the averages are made of."
-            case .archive: "Nothing is lost when you retire a reed \u{2014} it just moves out of the way."
-            case .lifespan: "This fills in as you retire reeds \u{2014} by model, and by strength."
+            case .dragAReed: "The others shuffled aside to make room for it."
+            case .openAReed: "Its hours, its log, and how much is left in it."
+            case .logASession: "That reed's hours just went up."
+            case .retireIt: "Out of the case — and it kept every hour it did."
+            case .archive: "Nothing is lost when a reed is retired."
+            case .lifespan: "It fills in further with every reed you finish."
             case .done: ""
             }
         }
@@ -215,16 +218,16 @@ final class Tour {
     /// thing it is pointing at reads as a glitch — you get no moment of having
     /// done it right. Long enough to see the reed land, short enough not to
     /// wait on it.
+    /// The player did the thing the step asked for.
+    ///
+    /// It marks the step and stops there. Moving on used to happen on a timer,
+    /// which meant the app deciding you had finished reading — and taking the
+    /// screen away mid-sentence if you hadn't. The tick and the unlocked key
+    /// say the step is done; you say when to leave it.
     func completed(_ step: Step) {
-        guard isRunning, step == self.step, !justDidIt else { return }
+        guard isRunning, step == self.step, !done.contains(step) else { return }
         Haptics.reedAdded()
-        withAnimation(.mechanical) { justDidIt = true }
-        Task { @MainActor in
-            try? await Task.sleep(for: .milliseconds(900))
-            guard isRunning, step == self.step else { return }
-            withAnimation(.settle) { justDidIt = false }
-            advance(quietly: true)
-        }
+        withAnimation(.settle) { done.insert(step) }
     }
 
     /// Whether the tour is standing on this step right now.
@@ -232,7 +235,6 @@ final class Tour {
 
     func advance(quietly: Bool = false) {
         if !quietly { Haptics.tick() }
-        justDidIt = false
         guard let next = Step(rawValue: step.rawValue + 1) else {
             wantsFirstReed = true
             isRunning = false
@@ -244,11 +246,18 @@ final class Tour {
     /// Back a step. There is no undoing what you already did to a reed, so
     /// this only moves the card: it is for people who want to read the last
     /// one again, which is most people, once.
+    /// Back a step, and arm it again.
+    ///
+    /// Going back to a step you have already done and finding it still ticked
+    /// makes the tour a list you have read rather than a thing you are doing.
+    /// It is re-armed, so the instruction means what it says a second time.
     func back() {
         guard let previous = Step(rawValue: step.rawValue - 1) else { return }
         Haptics.tick()
-        justDidIt = false
-        withAnimation(.settle) { step = previous }
+        withAnimation(.settle) {
+            done.remove(previous)
+            step = previous
+        }
     }
 
     var canGoBack: Bool { step.rawValue > 0 }
@@ -256,6 +265,43 @@ final class Tour {
     func skip() {
         Haptics.tick()
         isRunning = false
+    }
+}
+
+/// The light around whatever the step is pointing at.
+///
+/// It was a 2.5pt orange stroke, which is a selection marquee: hard, flat, and
+/// stuck on top of a reed rather than shining on it. Nothing else in this app
+/// is outlined — things are lit from above, or cut into the case, or lying in
+/// it. So this is light: a soft edge that breathes, and no line at all.
+///
+/// It stops breathing the moment the step is done and turns green, because a
+/// thing that has been dealt with should stop asking for attention.
+private struct Halo: View {
+    var shape: AnyShape
+    var isDone: Bool
+
+    @State private var breathing = false
+
+    private var colour: Color { isDone ? Palette.signalGreen : Palette.accent }
+
+    var body: some View {
+        ZStack {
+            // The glow, well outside the edge.
+            shape
+                .stroke(colour.opacity(0.55), lineWidth: 9)
+                .blur(radius: 11)
+                .scaleEffect(breathing && !isDone ? 1.035 : 1)
+            // A thin bright edge, so the shape stays legible against cane.
+            shape
+                .stroke(colour.opacity(0.9), lineWidth: 1.5)
+                .blur(radius: 0.4)
+        }
+        .opacity(breathing && !isDone ? 0.75 : 1)
+        .animation(.easeInOut(duration: 1.3).repeatForever(autoreverses: true),
+                   value: breathing)
+        .animation(.settle, value: isDone)
+        .onAppear { breathing = true }
     }
 }
 
@@ -356,24 +402,16 @@ struct TourOverlay: View {
 
     @ViewBuilder private var ring: some View {
         if let spot {
-            if let gesture = tour.step.gesture, !tour.justDidIt {
+            if let gesture = tour.step.gesture, !tour.isDone {
                 GestureHint(kind: gesture)
                     .id(tour.step)
                     .position(x: spot.midX, y: spot.midY)
             }
-            outline
-                .stroke(tour.justDidIt ? Palette.signalGreen : Palette.accent,
-                        lineWidth: 2.5)
-                .shadow(color: (tour.justDidIt ? Palette.signalGreen : Palette.accent)
-                    .opacity(0.55), radius: 10)
+
+            Halo(shape: outline, isDone: tour.isDone)
                 .frame(width: spot.width + 10, height: spot.height + 10)
                 .position(x: spot.midX, y: spot.midY)
                 .allowsHitTesting(false)
-                // No animation on the position. The anchor already updates
-                // every frame while a reed is under a finger, so animating it
-                // as well makes the ring swim along behind the reed instead of
-                // being drawn on it.
-                .animation(.mechanical, value: tour.justDidIt)
         }
     }
 
@@ -396,113 +434,123 @@ struct TourOverlay: View {
 /// was a different app's furniture bolted into this one.
 struct TourCard: View {
     @Bindable var tour: Tour
-    /// True inside a sheet, where the step has its own heading and its own
-    /// line, and where "skip" means this step rather than this screen.
-    var inSheet = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            HStack(spacing: 11) {
-                // The symbol in a disc, so the card has one fixed anchor point
-                // that doesn't move as the words change length.
-                Image(systemName: showsDone ? "checkmark" : tour.step.symbol)
-                    .font(.system(size: 14, weight: .bold))
-                    .foregroundStyle(Palette.onAccent)
-                    .frame(width: 30, height: 30)
-                    .background {
-                        Circle().fill(showsDone ? Palette.signalGreen : Palette.accent)
-                    }
-
-                VStack(alignment: .leading, spacing: 1) {
-                    Text(showsDone ? "Done" : "Step \(tour.step.rawValue + 1) of \(Tour.Step.allCases.count)")
-                        .font(.micro(10.5))
-                        .tracking(0.8)
-                        .textCase(.uppercase)
-                        .foregroundStyle(showsDone ? Palette.signalGreen : Palette.inkTertiary)
-                    Text(title)
-                        .font(.title(19))
-                        .foregroundStyle(Palette.ink)
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.85)
-                }
-
-                Spacer(minLength: 0)
-
-                Button {
-                    tour.skip()
-                } label: {
+            // The app's own section rule, the one it uses on every panel, with
+            // the step's count where a panel puts its label. The card used to
+            // open with a coloured disc and a symbol in it, which is furniture
+            // from a different app: nothing in Reedar is a badge, everything is
+            // either engraved, milled, or a key you can press.
+            HStack(spacing: 10) {
+                Text(showsDone ? "Done" : "Step \(tour.step.rawValue + 1) of \(Tour.Step.allCases.count)")
+                    .microLabel(showsDone ? Palette.signalGreen : Palette.inkSecondary)
+                Rectangle()
+                    .fill(Palette.hairline)
+                    .frame(height: 1)
+                Button { tour.skip() } label: {
                     Image(systemName: "xmark")
-                        .font(.system(size: 12, weight: .bold))
+                        .font(.system(size: 11, weight: .bold))
                         .foregroundStyle(Palette.inkTertiary)
-                        .frame(width: 30, height: 30)
+                        .frame(width: 24, height: 24)
                         .contentShape(Rectangle())
                 }
                 .accessibilityLabel("End the tour")
             }
 
-            Text(blurb)
-                .font(.copy(14.5))
-                .foregroundStyle(Palette.ink.opacity(0.9))
-                .lineSpacing(2)
-                .fixedSize(horizontal: false, vertical: true)
-                // Three lines' worth, whatever the step says. Without it the
-                // card grows and shrinks under your thumb every time the words
-                // change, which is most of what reads as glitchy.
-                .frame(minHeight: 62, alignment: .top)
-                .frame(maxWidth: .infinity, alignment: .leading)
+            // How far through, drawn by the same bar that shows how much life
+            // is left in a reed. One component, two honest uses.
+            LEDBar(progress: progress, segments: Tour.Step.allCases.count,
+                   height: 7, tint: showsDone ? Palette.signalGreen : Palette.accent)
 
-            if tour.step == .done {
-                PrimaryKey(title: tour.step.forward, symbol: "plus") { tour.advance() }
-                Button("Not yet") { tour.skip() }
-                    .font(.copy(13.5))
-                    .foregroundStyle(Palette.inkSecondary)
-                    .frame(maxWidth: .infinity)
-            } else {
-                HStack(spacing: 14) {
-                    Button {
-                        tour.back()
-                    } label: {
-                        Label("Back", systemImage: "chevron.left")
-                            .font(.copy(13.5, weight: .medium))
-                            .labelStyle(.titleAndIcon)
-                    }
-                    .foregroundStyle(Palette.inkSecondary)
-                    .opacity(tour.canGoBack ? 1 : 0.25)
-                    .disabled(!tour.canGoBack)
+            VStack(alignment: .leading, spacing: 6) {
+                Text(title)
+                    .font(.title(20))
+                    .foregroundStyle(Palette.ink)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.85)
 
-                    Spacer(minLength: 8)
-
-                    Button {
-                        tour.advance()
-                    } label: {
-                        Label("Next", systemImage: "chevron.right")
-                            .font(.copy(13.5, weight: .semibold))
-                            .labelStyle(TrailingIcon())
-                    }
-                    .foregroundStyle(Palette.accent)
-                    .opacity(showsDone ? 0.2 : 1)
-                    .disabled(showsDone)
-                }
+                Text(blurb)
+                    .font(.copy(14.5))
+                    .foregroundStyle(Palette.ink.opacity(0.88))
+                    .lineSpacing(2)
+                    .fixedSize(horizontal: false, vertical: true)
+                    // Room for three lines whatever the step says, so the card
+                    // is the same size on every one of them.
+                    .frame(minHeight: 60, alignment: .top)
+                    .frame(maxWidth: .infinity, alignment: .leading)
             }
+
+            keys
         }
-        .padding(18)
+        .padding(16)
         .raised(depth: .high)
         .shadow(color: .black.opacity(0.65), radius: 28, y: 14)
         .padding(.horizontal, Metrics.screenMargin)
         .column()
     }
 
-    /// The tick only belongs where the deed was done: a sheet closing is what
-    /// completes its own step, so the card inside it is already gone.
-    private var showsDone: Bool { tour.justDidIt && !inSheet }
+    /// Two keys, cut from the same stock as the plate's, and a way past.
+    ///
+    /// Next only lights up once the step has been done. Before that it is a
+    /// dead key and Skip is the honest way on — the difference between "I have
+    /// done this" and "I would rather not" is worth a control each.
+    private var keys: some View {
+        HStack(spacing: 10) {
+            Button { tour.back() } label: {
+                Image(systemName: "chevron.left")
+                    .font(.system(size: 14, weight: .bold))
+                    .foregroundStyle(Palette.ink)
+                    .frame(width: 46, height: 44)
+            }
+            .buttonStyle(.key)
+            .opacity(tour.canGoBack ? 1 : 0.3)
+            .disabled(!tour.canGoBack)
+            .accessibilityLabel("Back a step")
+
+            if !unlocked {
+                Button("Skip") { tour.advance() }
+                    .font(.copy(13.5))
+                    .foregroundStyle(Palette.inkTertiary)
+                    .frame(height: 44)
+                    .padding(.horizontal, 4)
+            }
+
+            Spacer(minLength: 0)
+
+            Button { tour.advance() } label: {
+                HStack(spacing: 7) {
+                    Text(tour.step == .done ? "Add my first reed" : "Next")
+                    Image(systemName: tour.step == .done ? "plus" : "chevron.right")
+                        .font(.system(size: 12, weight: .bold))
+                }
+                .font(.heading(15))
+                .foregroundStyle(unlocked ? Palette.onAccent : Palette.inkTertiary)
+                .padding(.horizontal, 18)
+                .frame(height: 44)
+            }
+            .buttonStyle(.key(tint: unlocked ? Palette.accent : nil))
+            .disabled(!unlocked)
+            .animation(.settle, value: unlocked)
+        }
+    }
+
+    /// The last step has nothing to do but leave, so its key is always live.
+    private var unlocked: Bool { tour.isDone || tour.step == .done }
+
+    /// Filled through the step you are on, not the one after it.
+    private var progress: Double {
+        Double(tour.step.rawValue + 1) / Double(Tour.Step.allCases.count)
+    }
+
+    private var showsDone: Bool { tour.isDone }
 
     private var title: String {
-        showsDone ? "That's it" : (inSheet ? tour.step.sheetTitle : tour.step.title)
+        showsDone ? "That's it" : tour.step.title
     }
 
     private var blurb: String {
         if showsDone { return tour.step.done }
-        // Whatever the screen in front of you says it needs, first.
         if let detail = tour.detail { return detail }
         if let hint = tour.step.sheetHint { return hint }
         return tour.step.blurb

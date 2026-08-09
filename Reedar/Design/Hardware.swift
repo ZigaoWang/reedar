@@ -47,13 +47,21 @@ struct LEDBar: View {
     var segments: Int = 12
     var height: CGFloat = 6
     var spacing: CGFloat = 3
+    /// One colour for every lit segment, instead of the wear colouring.
+    ///
+    /// The green-amber-red run means "how much of this reed is left", which is
+    /// the bar's first job and not its only possible one. Counting steps
+    /// through a tour with it would say the opposite of what is happening —
+    /// the bar going red as somebody succeeds.
+    var tint: Color?
 
     private var litCount: Int {
         Int((min(max(progress, 0), 1) * Double(segments)).rounded(.up))
     }
 
     private func tint(for index: Int) -> Color {
-        switch Double(index + 1) / Double(segments) {
+        if let tint { return tint }
+        return switch Double(index + 1) / Double(segments) {
         case ..<0.6: Palette.signalGreen
         case ..<0.85: Palette.signalAmber
         default: Palette.signalRed
