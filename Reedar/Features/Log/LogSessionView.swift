@@ -41,6 +41,21 @@ struct LogSessionView: View {
         return existing + playingMinutes
     }
 
+    /// What the tour's card should say while this page is up. The card lives
+    /// in a window above everything; this is how a screen talks to it.
+    private var guidance: String {
+        switch page {
+        case .what:
+            "What was it? Reedar counts a rehearsal differently from a practice "
+            + "session — most of a rehearsal is spent counting bars."
+        case .how:
+            "How long, door to door. Reedar works out how much of that actually "
+            + "reached the reed, and you can overrule it."
+        case .review:
+            "That's the session. Save it, and the reed's hours go up."
+        }
+    }
+
     var body: some View {
         NavigationStack {
             VStack(alignment: .leading, spacing: 0) {
@@ -50,13 +65,14 @@ struct LogSessionView: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             .background { Backdrop() }
             .safeAreaInset(edge: .bottom) { footer }
+            // Tell the tour where in this flow we are, and hand it back when
+            // the sheet closes.
+            .onAppear { tour?.detail = guidance }
+            .onChange(of: page) { _, _ in tour?.detail = guidance }
+            .onDisappear { tour?.detail = nil }
             // The tour's card is behind this sheet, so the step it sent you
             // here for has to speak from inside it.
-            .safeAreaInset(edge: .bottom) {
-                if tour?.isShowing(.logASession) == true, let tour {
-                    TourCard(tour: tour, inSheet: true).padding(.bottom, 6)
-                }
-            }
+
             .navigationBarTitleDisplayMode(.inline)
             .toolbarBackground(.hidden, for: .navigationBar)
             .toolbar {

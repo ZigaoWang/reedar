@@ -35,11 +35,13 @@ struct RetireReedView: View {
             }
             .scrollIndicators(.hidden)
             .background { Backdrop() }
-            .safeAreaInset(edge: .bottom) {
-                if tour?.isShowing(.retireIt) == true, let tour {
-                    TourCard(tour: tour, inSheet: true).padding(.bottom, 6)
-                }
+            .onAppear {
+                tour?.detail = "Why is it finished? Chipped, gone soft, or simply "
+                    + "played out. Whichever you pick, the reed keeps every hour "
+                    + "it did — that is what the averages are built from."
             }
+            .onDisappear { tour?.detail = nil }
+
             .navigationTitle("Retire")
             .navigationBarTitleDisplayMode(.inline)
             .toolbarBackground(.hidden, for: .navigationBar)

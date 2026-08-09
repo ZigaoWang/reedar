@@ -43,6 +43,14 @@ final class Tour {
     /// green wherever you drop it.
     var focusReed: UUID?
 
+    /// What the screen you are actually on wants to say, set by that screen.
+    ///
+    /// The add and retire flows have steps of their own, and a tour that says
+    /// "fill this in" while you are three questions deep has stopped helping.
+    /// Each page sets this as it goes and clears it when it leaves, so the one
+    /// card can follow a flow it knows nothing about.
+    var detail: String?
+
     /// True for the moment between doing the thing and being shown the next
     /// step, so the card can say so instead of silently swapping its words.
     var justDidIt = false
@@ -233,6 +241,18 @@ final class Tour {
         withAnimation(.settle) { step = next }
     }
 
+    /// Back a step. There is no undoing what you already did to a reed, so
+    /// this only moves the card: it is for people who want to read the last
+    /// one again, which is most people, once.
+    func back() {
+        guard let previous = Step(rawValue: step.rawValue - 1) else { return }
+        Haptics.tick()
+        justDidIt = false
+        withAnimation(.settle) { step = previous }
+    }
+
+    var canGoBack: Bool { step.rawValue > 0 }
+
     func skip() {
         Haptics.tick()
         isRunning = false
@@ -407,6 +427,17 @@ struct TourCard: View {
                 }
 
                 Spacer(minLength: 0)
+
+                Button {
+                    tour.skip()
+                } label: {
+                    Image(systemName: "xmark")
+                        .font(.system(size: 12, weight: .bold))
+                        .foregroundStyle(Palette.inkTertiary)
+                        .frame(width: 30, height: 30)
+                        .contentShape(Rectangle())
+                }
+                .accessibilityLabel("End the tour")
             }
 
             Text(blurb)
@@ -427,17 +458,27 @@ struct TourCard: View {
                     .foregroundStyle(Palette.inkSecondary)
                     .frame(maxWidth: .infinity)
             } else {
-                HStack {
-                    if !inSheet {
-                        Button("End tour") { tour.skip() }
-                            .font(.copy(13.5))
-                            .foregroundStyle(Palette.inkTertiary)
+                HStack(spacing: 14) {
+                    Button {
+                        tour.back()
+                    } label: {
+                        Label("Back", systemImage: "chevron.left")
+                            .font(.copy(13.5, weight: .medium))
+                            .labelStyle(.titleAndIcon)
                     }
+                    .foregroundStyle(Palette.inkSecondary)
+                    .opacity(tour.canGoBack ? 1 : 0.25)
+                    .disabled(!tour.canGoBack)
+
                     Spacer(minLength: 8)
-                    Button(inSheet ? "Skip this step" : "Skip this step") {
+
+                    Button {
                         tour.advance()
+                    } label: {
+                        Label("Next", systemImage: "chevron.right")
+                            .font(.copy(13.5, weight: .semibold))
+                            .labelStyle(TrailingIcon())
                     }
-                    .font(.copy(13.5, weight: .semibold))
                     .foregroundStyle(Palette.accent)
                     .opacity(showsDone ? 0.2 : 1)
                     .disabled(showsDone)
@@ -461,7 +502,19 @@ struct TourCard: View {
 
     private var blurb: String {
         if showsDone { return tour.step.done }
-        if inSheet, let hint = tour.step.sheetHint { return hint }
+        // Whatever the screen in front of you says it needs, first.
+        if let detail = tour.detail { return detail }
+        if let hint = tour.step.sheetHint { return hint }
         return tour.step.blurb
+    }
+}
+
+/// A label with its symbol on the right, for anything that means "onward".
+private struct TrailingIcon: LabelStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        HStack(spacing: 5) {
+            configuration.title
+            configuration.icon.font(.system(size: 11, weight: .bold))
+        }
     }
 }

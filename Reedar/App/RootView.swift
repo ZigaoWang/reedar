@@ -20,6 +20,7 @@ struct RootView: View {
     @AppStorage(Intro.seenKey) private var hasSeenIntro = false
 
     @State private var tour = Tour()
+    @State private var tourWindow = TourWindow()
     /// The one screen in onboarding that is a screen. See `WelcomeView`.
     @State private var showingWelcome = false
     /// The screen between the welcome and the tour, explaining the reeds.
@@ -70,14 +71,10 @@ struct RootView: View {
                 // bar — and rings the plate instead of the reed.
                 .ignoresSafeArea()
             }
-            // The card, on the other hand, keeps the safe area: in the layer
-            // above it sat under the home indicator with its last line cut off.
-            .overlay(alignment: .bottom) {
-                if tour.isRunning {
-                    TourCard(tour: tour)
-                        .padding(.bottom, 6)
-                        .transition(.move(edge: .bottom).combined(with: .opacity))
-                }
+            // The card is not an overlay at all any more — it lives in its own
+            // window above every sheet in the app. See `TourWindow`.
+            .onChange(of: tour.isRunning) { _, running in
+                if running { tourWindow.show(tour) } else { tourWindow.hide() }
             }
             // After the veil, not under it. Two things arriving over the case
             // at once is two things nobody watched.
