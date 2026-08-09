@@ -21,6 +21,10 @@ struct CaseView: View {
     /// on Sunday and knows perfectly well how to add another; telling them
     /// again is the app forgetting who it is talking to.
     @AppStorage("hasAddedAReed") private var hasAddedAReed = false
+    /// Whether the hint has been waved away by hand. Separate from
+    /// `hasAddedAReed` because they are different facts: one is "you've done
+    /// it", the other is "I heard you the first time".
+    @AppStorage("dismissedSlotHint") private var dismissedSlotHint = false
     /// Everything this screen can push, in one stack.
     ///
     /// It was a typed `[Reed]` path plus two `navigationDestination(isPresented:)`
@@ -533,19 +537,40 @@ struct CaseView: View {
         // Laid over the foot of the case it costs nothing and moves nothing,
         // and the bays it covers are empty by definition.
         .overlay(alignment: .bottom) {
-            if activeReeds.isEmpty, !hasAddedAReed {
-                Text("Tap any slot to add your first reed")
-                    .font(.copy(13))
-                    .foregroundStyle(Palette.inkSecondary)
-                    .padding(.horizontal, 14)
-                    .padding(.vertical, 9)
-                    .background {
-                        Capsule().fill(Palette.surface.opacity(0.9))
-                            .overlay { Capsule().strokeBorder(Palette.hairline, lineWidth: 1) }
+            if activeReeds.isEmpty, !hasAddedAReed, !dismissedSlotHint {
+                HStack(spacing: 4) {
+                    Text("Tap any slot to add your first reed")
+                        .font(.copy(13))
+                        .foregroundStyle(Palette.inkSecondary)
+
+                    // A way to be rid of it.
+                    //
+                    // It goes for good, not until next time: somebody who has
+                    // dismissed a hint has told you they don't need it, and an
+                    // app that keeps offering it anyway is arguing.
+                    Button {
+                        Haptics.tick()
+                        withAnimation(.smooth(duration: 0.3)) {
+                            dismissedSlotHint = true
+                        }
+                    } label: {
+                        Image(systemName: "xmark")
+                            .font(.system(size: 10, weight: .bold))
+                            .foregroundStyle(Palette.inkTertiary)
+                            .frame(width: 28, height: 28)
+                            .contentShape(Rectangle())
                     }
-                    .padding(.bottom, 26)
-                    .allowsHitTesting(false)
-                    .transition(.opacity)
+                    .buttonStyle(.plain)
+                }
+                .padding(.leading, 14)
+                .padding(.trailing, 2)
+                .padding(.vertical, 5)
+                .background {
+                    Capsule().fill(Palette.surface.opacity(0.9))
+                        .overlay { Capsule().strokeBorder(Palette.hairline, lineWidth: 1) }
+                }
+                .padding(.bottom, 26)
+                .transition(.opacity)
             }
         }
     }
