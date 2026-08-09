@@ -13,6 +13,14 @@ struct CaseView: View {
     @Query(sort: \Reed.addedAt, order: .reverse) private var allReeds: [Reed]
 
     @State private var addingTo: SlotTarget?
+
+    /// Whether this player has ever had a reed in the case.
+    ///
+    /// The line telling you to tap a slot is for somebody who has never done
+    /// it. An empty case a year in means a player who retired their last reed
+    /// on Sunday and knows perfectly well how to add another; telling them
+    /// again is the app forgetting who it is talking to.
+    @AppStorage("hasAddedAReed") private var hasAddedAReed = false
     /// Everything this screen can push, in one stack.
     ///
     /// It was a typed `[Reed]` path plus two `navigationDestination(isPresented:)`
@@ -272,6 +280,12 @@ struct CaseView: View {
                 startAdding.wrappedValue = false
                 addingTo = SlotTarget(index: slots.firstIndex { $0 == nil } ?? 0)
             }
+            // Any reed at all, ever, retires the hint for good — including
+            // reeds that arrive from another device by iCloud, and reeds that
+            // are all subsequently retired or deleted.
+            .task(id: allReeds.isEmpty) {
+                if !allReeds.isEmpty { hasAddedAReed = true }
+            }
             .task {
                 normalizeSlots()
                 let arguments = ProcessInfo.processInfo.arguments
@@ -519,7 +533,7 @@ struct CaseView: View {
         // Laid over the foot of the case it costs nothing and moves nothing,
         // and the bays it covers are empty by definition.
         .overlay(alignment: .bottom) {
-            if activeReeds.isEmpty {
+            if activeReeds.isEmpty, !hasAddedAReed {
                 Text("Tap any slot to add your first reed")
                     .font(.copy(13))
                     .foregroundStyle(Palette.inkSecondary)
