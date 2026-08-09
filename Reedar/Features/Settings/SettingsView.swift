@@ -13,15 +13,15 @@ struct SettingsView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 20) {
-                section("Introduction") {
+                section("Welcome") {
                     Button {
                         Haptics.tick()
                         hasSeenIntro = false
                         dismiss()
                     } label: {
                         row(symbol: "play.circle",
-                            title: "Show the introduction again",
-                            detail: "Three screens, then back to your case")
+                            title: "Show the welcome again",
+                            detail: "The one screen you saw on first launch")
                     }
                     .buttonStyle(.sink)
                 }

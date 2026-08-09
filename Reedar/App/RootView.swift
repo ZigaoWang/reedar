@@ -69,6 +69,14 @@ struct RootView: View {
                 guard !veiled, !hasSeenIntro else { return }
                 showingWelcome = true
             }
+            // And whenever the flag is cleared, which is what Settings does.
+            // Watching only the veil meant "Show the welcome again" set a flag
+            // nobody was listening to any more: it worked perfectly on the next
+            // cold launch and did nothing at all when you pressed it.
+            .onChange(of: hasSeenIntro) { _, seen in
+                guard !seen, !showingVeil else { return }
+                showingWelcome = true
+            }
     }
 
     private func finish(addReed: Bool) {
