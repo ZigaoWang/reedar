@@ -8,7 +8,6 @@ struct RetireReedView: View {
     var onRetired: () -> Void
 
     @Environment(\.dismiss) private var dismiss
-    @Environment(Tour.self) private var tour: Tour?
     @Query private var allReeds: [Reed]
 
     @State private var reason: RetireReason = .wentFlat
@@ -35,12 +34,6 @@ struct RetireReedView: View {
             }
             .scrollIndicators(.hidden)
             .background { Backdrop() }
-            .onAppear {
-                tour?.detail = "Why is it finished? Chipped, gone soft, or simply "
-                    + "played out. Whichever you pick, the reed keeps every hour "
-                    + "it did — that is what the averages are built from."
-            }
-            .onDisappear { tour?.detail = nil }
 
             .navigationTitle("Retire")
             .navigationBarTitleDisplayMode(.inline)

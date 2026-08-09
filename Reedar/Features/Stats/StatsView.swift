@@ -71,7 +71,6 @@ struct StatsView: View {
     private var best: LifespanSummary? { summaries.first }
 
     @Environment(\.horizontalSizeClass) private var widthClass
-    @Environment(Tour.self) private var tour: Tour?
     private var isWide: Bool { widthClass == .regular }
 
     /// One column on a phone; two where there's room.
@@ -146,7 +145,6 @@ struct StatsView: View {
         }
         .scrollIndicators(.hidden)
         .background { Backdrop() }
-        .onAppear { tour?.completed(.lifespan) }
         .navigationTitle("Lifespan")
         .navigationBarTitleDisplayMode(.inline)
         .toolbarBackground(.hidden, for: .navigationBar)

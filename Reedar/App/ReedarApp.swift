@@ -3,18 +3,10 @@ import SwiftUI
 
 @main
 struct ReedarApp: App {
-    /// The player's own reeds. Built once, whether or not it is being shown.
-    private let store: ModelContainer
-    /// A case with a few reeds in it that exist only in memory, for the tour
-    /// to be given on. See `Tour`: nothing shown during onboarding is real, so
-    /// nothing shown during onboarding can be written to disk or synced.
-    @State private var demo: ModelContainer?
-
-    @AppStorage(Intro.seenKey) private var hasSeenIntro = false
+    let container: ModelContainer
 
     init() {
-        // Before anything reads it. The tour is decided at launch, so a flag
-        // that lands after the first `task` is a flag that does nothing.
+        // Simulator flags, before anything reads them.
         let arguments = ProcessInfo.processInfo.arguments
         if arguments.contains("-resetIntro") {
             UserDefaults.standard.set(false, forKey: Intro.seenKey)
@@ -25,12 +17,12 @@ struct ReedarApp: App {
 
         // `-seedSampleData` fills an in-memory store with a believable
         // rotation, for screenshots and for poking at the UI in the simulator.
-        if ProcessInfo.processInfo.arguments.contains("-seedSampleData") {
-            store = MainActor.assumeIsolated { ModelContainer.preview() }
+        if arguments.contains("-seedSampleData") {
+            container = MainActor.assumeIsolated { ModelContainer.preview() }
             return
         }
         do {
-            store = try ModelContainer.reedar()
+            container = try ModelContainer.reedar()
         } catch {
             // A store that can't open is not recoverable at runtime; failing
             // loudly here beats silently losing a player's history.
@@ -40,16 +32,9 @@ struct ReedarApp: App {
 
     var body: some Scene {
         WindowGroup {
-            RootView(isDemo: demo != nil)
-                // Swapping the container rebuilds everything below it, which is
-                // exactly what should happen the moment the borrowed reeds go
-                // and the player's own empty case takes their place.
-                .modelContainer(demo ?? store)
-                .task { if !hasSeenIntro, demo == nil { demo = ModelContainer.preview() } }
-                .onChange(of: hasSeenIntro) { _, seen in
-                    if seen { withAnimation(.settle) { demo = nil } }
-                }
+            RootView()
         }
+        .modelContainer(container)
     }
 }
 

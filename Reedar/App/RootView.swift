@@ -4,29 +4,21 @@ import SwiftUI
 /// There is one screen: the case. Everything else is reached through a reed,
 /// or through the single button in the corner.
 struct RootView: View {
-    /// Whether the case below is the borrowed one the tour is given on.
-    var isDemo = false
-
     /// Cold launch only. `RootView` is built once per process, so this starting
     /// value can't come back after the veil has gone — returning from the
     /// background doesn't rebuild the view, and so doesn't show it again.
     @State private var showingVeil = true
 
-    /// Whether the introduction has been seen.
+    /// Whether the welcome has been seen.
     ///
     /// Kept in `UserDefaults` rather than in the store on purpose: it is a fact
     /// about this installation, not about the player's reeds, and it has no
     /// business syncing to another device that has its own first launch to do.
     @AppStorage(Intro.seenKey) private var hasSeenIntro = false
 
-    @State private var tour = Tour()
-    @State private var tourWindow = TourWindow()
-    /// The one screen in onboarding that is a screen. See `WelcomeView`.
     @State private var showingWelcome = false
-    /// The screen between the welcome and the tour, explaining the reeds.
-    @State private var showingDemoNotice = false
-    /// Set when the tour ends on "Add my first reed", and read once by the
-    /// case, which owns the add flow.
+    /// Set when the welcome hands over, and read once by the case, which owns
+    /// the add flow.
     @State private var startAdding = false
 
     var body: some View {
@@ -35,7 +27,6 @@ struct RootView: View {
             .preferredColorScheme(.dark)
             .tint(Palette.accent)
             .task { Haptics.warmUp() }
-            .environment(tour)
             // Nothing here transforms the case, and nothing here transforms the
             // veil's black either. Both were tried and both were wrong: a scale
             // is a geometry effect, and under one SwiftUI stops honouring the
@@ -53,75 +44,37 @@ struct RootView: View {
                     LaunchVeil(isPresented: $showingVeil)
                 }
             }
-            // The tour rides on top of the whole app, reading the anchors that
-            // every screen underneath publishes. It has to live here rather
-            // than inside the case: half of what it points at — the log key,
-            // the retire key — is two screens further in.
-            .overlayPreferenceValue(TourAnchors.self) { anchors in
-                GeometryReader { proxy in
-                    if tour.isRunning {
-                        TourOverlay(tour: tour, spot: tour.step.target
-                            .flatMap { anchors[$0] }
-                            .map { proxy[$0] })
-                    }
-                }
-                // The reader has to span the same rectangle the anchors were
-                // measured in. Laid out inside the safe area it reads every
-                // target about ninety points high — the height of the status
-                // bar — and rings the plate instead of the reed.
-                .ignoresSafeArea()
-            }
-            // The card is not an overlay at all any more — it lives in its own
-            // window above every sheet in the app. See `TourWindow`.
-            .onChange(of: tour.isRunning) { _, running in
-                if running { tourWindow.show(tour) } else { tourWindow.hide() }
-            }
-            // After the veil, not under it. Two things arriving over the case
-            // at once is two things nobody watched.
+            // One screen, and then the app. It restates what somebody has just
+            // paid for and hands them to the only thing there is to do with an
+            // empty case: put a reed in it.
+            //
+            // There was a guided tour here for a while — a case of borrowed
+            // reeds, a light on the thing to press, a card that followed you
+            // into every sheet. It came to eight hundred lines and hooks in
+            // nine files to explain an app with one screen and two gestures,
+            // and the add flow it finally handed you to is already four big
+            // questions asked one at a time. That flow is the teaching. This
+            // is only the door.
             .fullScreenCover(isPresented: $showingWelcome) {
                 WelcomeView {
-                    showingWelcome = false
-                    showingDemoNotice = true
+                    finish(addReed: true)
                 } skip: {
-                    showingWelcome = false
-                    finishOnboarding(addReed: false)
+                    finish(addReed: false)
                 }
                 .preferredColorScheme(.dark)
                 .tint(Palette.accent)
             }
-            .fullScreenCover(isPresented: $showingDemoNotice) {
-                DemoNoticeView {
-                    showingDemoNotice = false
-                    withAnimation(.settle) { tour.isRunning = true }
-                }
-                .preferredColorScheme(.dark)
-                .tint(Palette.accent)
-            }
+            // After the veil, not under it.
             .onChange(of: showingVeil) { _, veiled in
-                guard !veiled, !hasSeenIntro, isDemo else { return }
-                // `-tourStep` goes straight to the tour, past the welcome, for
-                // looking at one step of it.
-                if ProcessInfo.processInfo.arguments.contains("-tourStep") {
-                    tour.isRunning = true
-                } else if ProcessInfo.processInfo.arguments.contains("-openDemoNotice") {
-                    showingDemoNotice = true
-                } else {
-                    showingWelcome = true
-                }
-            }
-            // Ending the tour is what puts the player's own store back: see
-            // `ReedarApp`, which is watching this same flag.
-            .onChange(of: tour.isRunning) { _, running in
-                guard !running, !hasSeenIntro else { return }
-                finishOnboarding(addReed: tour.wantsFirstReed)
+                guard !veiled, !hasSeenIntro else { return }
+                showingWelcome = true
             }
     }
 
-    /// Hands the app back to the player: their own store returns, and with it
-    /// an empty case — so if they asked for a reed, the add flow opens on it.
-    private func finishOnboarding(addReed: Bool) {
-        startAdding = addReed
+    private func finish(addReed: Bool) {
+        showingWelcome = false
         hasSeenIntro = true
+        startAdding = addReed
     }
 }
 

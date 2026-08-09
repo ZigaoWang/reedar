@@ -38,22 +38,6 @@ struct AddReedView: View {
             : model != nil
     }
 
-    @Environment(Tour.self) private var tour: Tour?
-
-    /// What the tour's card says while each question is up.
-    private var guidance: String {
-        switch page {
-        case .instrument: "Which saxophone this reed is for. Strengths are "
-            + "numbered differently by instrument, so Reedar asks first."
-        case .brand: "Who made it. Pick \"Something else\" at the bottom for a "
-            + "reed the list has never heard of."
-        case .model: "Which of theirs. The strengths on the next screen come "
-            + "from this model's own scale."
-        case .strength: "How hard it blows, in that maker's own numbering. A "
-            + "nickname is optional — it's what the reed is called in your case."
-        case .custom: "Type it in as it's printed on the box."
-        }
-    }
 
     var body: some View {
         NavigationStack {
@@ -64,9 +48,6 @@ struct AddReedView: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             .background { Backdrop() }
             .safeAreaInset(edge: .bottom) { footer }
-            .onAppear { tour?.detail = guidance }
-            .onChange(of: page) { _, _ in tour?.detail = guidance }
-            .onDisappear { tour?.detail = nil }
             .navigationBarTitleDisplayMode(.inline)
             .toolbarBackground(.hidden, for: .navigationBar)
             .toolbar {

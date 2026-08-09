@@ -30,9 +30,7 @@ struct WelcomeView: View {
                     .multilineTextAlignment(.center)
                 Text("Log what you play, retire a reed when it's done, and Reedar "
                      + "works out what your reeds actually last you — by brand, "
-                     + "model and strength.\n\nThe tour uses a case of practice "
-                     + "reeds you can do anything to. They disappear at the end, "
-                     + "and then you add your own.")
+                     + "model and strength.")
                     .font(.copy(15))
                     .foregroundStyle(Palette.inkSecondary)
                     .multilineTextAlignment(.center)
@@ -43,8 +41,8 @@ struct WelcomeView: View {
             Spacer(minLength: 0)
 
             VStack(spacing: 12) {
-                PrimaryKey(title: "Show me around") { begin() }
-                Button("I'll find my own way") { skip() }
+                PrimaryKey(title: "Add my first reed", symbol: "plus") { begin() }
+                Button("Have a look round first") { skip() }
                     .font(.copy(14))
                     .foregroundStyle(Palette.inkSecondary)
             }

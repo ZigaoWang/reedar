@@ -24,7 +24,6 @@ struct ReedDetailView: View {
     }
 
     @Environment(\.horizontalSizeClass) private var widthClass
-    @Environment(Tour.self) private var tour: Tour?
     private var isWide: Bool { widthClass == .regular }
 
     /// One column on a phone; two where there's room for two.
@@ -115,19 +114,6 @@ struct ReedDetailView: View {
                         .foregroundStyle(Palette.ink)
                 }
             }
-        }
-        // Opening a reed, opening the log, opening the retire sheet: the
-        // three things the tour asks for on this screen, each reported the
-        // moment it happens rather than when a Next key is pressed.
-        .onAppear { tour?.completed(.openAReed) }
-        // On the way *out* of each sheet, not into it. Completing on open
-        // would move the tour on while the sheet was still up, taking the
-        // guidance off the screen a second after it arrived.
-        .onChange(of: isLogging) { was, now in
-            if was, !now { tour?.completed(.logASession) }
-        }
-        .onChange(of: isRetiring) { was, now in
-            if was, !now { tour?.completed(.retireIt) }
         }
         .sheet(isPresented: $isLogging) { LogSessionView(reed: reed) }
         .task {
@@ -353,12 +339,10 @@ struct ReedDetailView: View {
             PrimaryKey(title: "Log session", symbol: "plus") { isLogging = true }
                 .keyboardShortcut("l", modifiers: .command)
                 .hoverEffect(.lift)
-                .tourTarget(.logKey)
             IconKey(symbol: "archivebox", tint: nil, size: 50, label: "Retire reed") {
                 isRetiring = true
             }
             .hoverEffect(.lift)
-            .tourTarget(.retireKey)
         }
     }
 

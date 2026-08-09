@@ -50,8 +50,6 @@ struct CaseView: View {
     /// threshold in points had to be guessed, and guessed wrong — a 6.9" phone
     /// is 440pt wide and wants every one of them.
     @Environment(\.horizontalSizeClass) private var widthClass
-    /// Present only while onboarding is running — see `Tour`.
-    @Environment(Tour.self) private var tour: Tour?
 
     private static let slotCount = 8
     private static let slotGap: CGFloat = 8
@@ -269,12 +267,6 @@ struct CaseView: View {
             // the first free bay rather than a chosen one: the case is empty,
             // every bay is the first bay, and being asked to pick one is a
             // question with no wrong answer, which is the worst kind.
-            // The tour talks about one reed for its whole length. Chosen once,
-            // when it starts, and then followed wherever it goes.
-            .task(id: tour?.isRunning) {
-                guard let tour, tour.isRunning, tour.focusReed == nil else { return }
-                tour.focusReed = slots.compactMap { $0 }.first?.id
-            }
             .onChange(of: startAdding.wrappedValue) { _, wants in
                 guard wants else { return }
                 startAdding.wrappedValue = false
@@ -410,12 +402,10 @@ struct CaseView: View {
                 plateKey("archivebox", label: "Retired reeds", key: "r") {
                     path.append(Destination.archive)
                 }
-                .tourTarget(.archiveKey)
                 Spacer()
                 plateKey("chart.bar", label: "Lifespan data", key: "d") {
                     path.append(Destination.lifespan)
                 }
-                .tourTarget(.lifespanKey)
             }
         }
         // `ReedRow` is inset 4 inside its bay, so the plate matches it and the
@@ -520,6 +510,30 @@ struct CaseView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background { ground }
         .background { newReedShortcut }
+        // The one line an empty case needs, and the only thing on a first
+        // launch that says a bay can be tapped.
+        //
+        // An overlay, not a row. In the plate it made the lockup a stack of two
+        // things and the mark rode up and down depending on how many reeds you
+        // owned; between the plate and the bed it took height off every bay.
+        // Laid over the foot of the case it costs nothing and moves nothing,
+        // and the bays it covers are empty by definition.
+        .overlay(alignment: .bottom) {
+            if activeReeds.isEmpty {
+                Text("Tap any slot to add your first reed")
+                    .font(.copy(13))
+                    .foregroundStyle(Palette.inkSecondary)
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 9)
+                    .background {
+                        Capsule().fill(Palette.surface.opacity(0.9))
+                            .overlay { Capsule().strokeBorder(Palette.hairline, lineWidth: 1) }
+                    }
+                    .padding(.bottom, 26)
+                    .allowsHitTesting(false)
+                    .transition(.opacity)
+            }
+        }
     }
 
     /// ⌘N, and nothing to look at.
@@ -775,9 +789,6 @@ struct CaseView: View {
                     // Opening the reed lives inside this too — see the comment
                     // on `carryGesture`.
                     .gesture(carryGesture(for: reed, at: index, in: grid))
-                    // By identity, so the ring rides the reed you picked up
-                    // rather than staying behind on the slot it left.
-                    .tourTargetIf(reed.id == tour?.focusReed, .firstReed)
                 }
             }
             .frame(maxWidth: .infinity, alignment: .topLeading)
@@ -914,9 +925,6 @@ struct CaseView: View {
             }
         }
         Haptics.reedAdded()
-        // The tour's "move a reed" step ends when a reed actually moves,
-        // however it was moved.
-        tour?.completed(.dragAReed)
     }
 
     /// Writes the laid-out order back to the reeds, so positions stay stable
