@@ -10,9 +10,8 @@ Free on the
 
 Open `Reedar.xcodeproj` and run. No accounts, no onboarding, fully offline.
 
-Shipping it: [release checklist](Store/release-checklist.md),
-[store listing](Store/store-listing.md), and `Tools/screenshots.sh` for the
-App Store screenshot set.
+`Tools/screenshots.sh` renders the App Store screenshot set into
+`Store/screenshots/`.
 
 The website is `docs/` — a static site served by GitHub Pages at
 [reedar.app](https://reedar.app), carrying the marketing page, the privacy
