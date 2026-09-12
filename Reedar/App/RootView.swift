@@ -71,8 +71,8 @@ struct RootView: View {
                 }
             }
             // One screen, and then the app. It restates what somebody has just
-            // paid for and hands them to the only thing there is to do with an
-            // empty case: put a reed in it.
+            // downloaded and hands them to the only thing there is to do with
+            // an empty case: put a reed in it.
             //
             // There was a guided tour here for a while — a case of borrowed
             // reeds, a light on the thing to press, a card that followed you

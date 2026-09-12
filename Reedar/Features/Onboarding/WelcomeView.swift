@@ -3,9 +3,8 @@ import SwiftUI
 /// Two screens before the app, and the only part of onboarding that is a
 /// screen at all.
 ///
-/// The first says hello and thank you — somebody has just paid for this and
-/// opened it, and the least it can do is introduce itself before asking for
-/// anything. The second says what it is for, with the case doing the talking.
+/// The first says hello — somebody has just downloaded this and opened it, and
+/// the least it can do is introduce itself before asking for anything. The second says what it is for, with the case doing the talking.
 /// Then it hands over to the add flow, which is four big questions asked one at
 /// a time and teaches more than a tour could.
 ///
@@ -351,8 +350,8 @@ struct WelcomeView: View {
                     }
                 }
 
-                Text("Thank you for buying it. No account, no subscription, no "
-                     + "adverts, and nothing leaves your phone.")
+                Text("It's free. No account, no subscription, no adverts, and "
+                     + "nothing leaves your phone.")
                     .font(.copy(15.5))
                     .foregroundStyle(Palette.inkSecondary)
                     .fixedSize(horizontal: false, vertical: true)
