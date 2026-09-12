@@ -97,7 +97,10 @@ footer a { color: var(--ink-2); }
   max-width: 34rem;              /* a line nobody's eye has to return from */
   margin: clamp(44px, 8vw, 96px) auto clamp(40px, 6vw, 64px);
 }
-.intro img { width: 74px; height: 74px; border-radius: 17px; margin: 0 auto 26px; }
+/* The app icon only. A descendant selector here also caught the App Store
+   badge further down the intro, squashing it to 74x74 and rounding its
+   corners; the badge is Apple's art and takes none of this. */
+.intro > img { width: 74px; height: 74px; border-radius: 17px; margin: 0 auto 26px; }
 
 h1 {
   margin: 0;
@@ -111,7 +114,8 @@ h1 {
 /* Apple's own badge art, unaltered — the black variant carries a grey hairline
    so it sits on the near-black ground the way the panels do. Sized past the
    40px minimum, with the clear space Apple asks for kept by the margins. */
-.intro .status { margin-top: 26px; }
+.intro .status { margin-top: 30px; }
+.intro .status a { display: inline-block; }
 
 /* ── The screens ──────────────────────────────────────────────────────── */
 
