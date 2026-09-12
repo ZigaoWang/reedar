@@ -4,10 +4,14 @@ A reed tracker for saxophone players. Log what you play, retire reeds when
 they're done, and find out how long your reeds actually last — by brand,
 model and strength.
 
+Free on the
+[App Store](https://apps.apple.com/us/app/reedar-saxophone-reed-tracker/id6799631094)
+— no subscription, no in-app purchases, no ads.
+
 Open `Reedar.xcodeproj` and run. No accounts, no onboarding, fully offline.
 
-Shipping it: [release checklist](docs/release-checklist.md),
-[store listing](docs/store-listing.md), and `Tools/screenshots.sh` for the
+Shipping it: [release checklist](Store/release-checklist.md),
+[store listing](Store/store-listing.md), and `Tools/screenshots.sh` for the
 App Store screenshot set.
 
 The website is `docs/` — a static site served by GitHub Pages at
