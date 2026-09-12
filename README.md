@@ -6,6 +6,17 @@ model and strength.
 
 Open `Reedar.xcodeproj` and run. No accounts, no onboarding, fully offline.
 
+Shipping it: [release checklist](docs/release-checklist.md),
+[store listing](docs/store-listing.md), and `Tools/screenshots.sh` for the
+App Store screenshot set.
+
+The website is `docs/` — a static site served by GitHub Pages at
+[reedar.app](https://reedar.app), carrying the marketing page, the privacy
+policy and the support page. `docs/assets/styles.css` takes its colours
+straight from `Design/Palette.swift`, so the site and the app are moulded in
+the same two materials; `docs/assets/shots/` is the web-sized copy of the App
+Store screenshots.
+
 ## What's in V1
 
 | Screen | File |
@@ -73,6 +84,20 @@ the whole navigation.
 Everything else happens *to a reed*: you pick one up first, and logging,
 retiring and history all belong to it. The log sheet never asks which reed —
 it already knows.
+
+The case is the screen on an iPad too — the tray still runs to the glass and
+takes its corners from the display. What changes is the bays. A bay is a reed's
+outline, so its proportion is not negotiable, and `CaseView.bed(in:)` picks the
+arrangement that gets the most reed onto the glass: one column of eight in
+portrait, two of four in landscape, chosen by which one yields the wider bay
+rather than by asking what device this is. Whatever's left over stays bare
+tray. Insetting the whole case instead — a rounded rectangle with a hairline,
+on a ground of the same colour — reads as a phone pasted onto an iPad, which is
+what it was before this.
+
+Everything behind the case is a column of panels held to 520pt
+(`Metrics.column`). The switch throughout is `horizontalSizeClass`, not a width
+in points; a 6.9" phone is 440pt wide and wants every one of them.
 
 The reeds are drawn, not illustrated. `Design/ReedView.swift` builds the
 silhouette from normalised coordinates, so one path serves a reed lying either
