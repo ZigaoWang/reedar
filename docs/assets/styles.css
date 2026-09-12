@@ -108,9 +108,10 @@ h1 {
 }
 .intro p { margin: 16px 0 0; color: var(--ink-2); font-size: 1.06rem; }
 
-.status { margin-top: 22px; color: var(--ink-3); font-size: 0.9rem; }
-.status a { color: var(--accent); }
-.status a:hover { text-decoration: underline; }
+/* Apple's own badge art, unaltered — the black variant carries a grey hairline
+   so it sits on the near-black ground the way the panels do. Sized past the
+   40px minimum, with the clear space Apple asks for kept by the margins. */
+.intro .status { margin-top: 26px; }
 
 /* ── The screens ──────────────────────────────────────────────────────── */
 
