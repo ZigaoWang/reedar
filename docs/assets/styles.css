@@ -109,6 +109,8 @@ h1 {
 .intro p { margin: 16px 0 0; color: var(--ink-2); font-size: 1.06rem; }
 
 .status { margin-top: 22px; color: var(--ink-3); font-size: 0.9rem; }
+.status a { color: var(--accent); }
+.status a:hover { text-decoration: underline; }
 
 /* ── The screens ──────────────────────────────────────────────────────── */
 
